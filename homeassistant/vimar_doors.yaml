@@ -1,0 +1,33 @@
+# Vimar VIEW Door — pedestrian gate (relay 2) as a real Home Assistant button entity
+#
+# Creates: button.cancelletto   -> POST set.device.opendoor locknumber 2
+#
+# Installed on ha.example.com at /config/packages/vimar_doors.yaml, pulled in
+# by configuration.yaml:
+#   homeassistant:
+#     packages: !include_dir_named packages
+#
+# Replace <OUT_AUTH_CODE> with the device's out-auth-code before use.
+# Requires a restart (Settings → System → Restart) after editing.
+
+rest_command:
+  vimar_open_door_2:
+    url: "http://192.168.1.50/tdkcgi"
+    method: POST
+    timeout: 8
+    content_type: "application/xml;charset=utf-8"
+    payload: >-
+      <envelope><header><security>username</security><username>adminapp2</username><password><OUT_AUTH_CODE></password><passwordencode>1</passwordencode></header><body><command>set.device.opendoor</command><content><door>0</door><locknumber>2</locknumber><password><OUT_AUTH_CODE></password></content></body></envelope>
+
+# Door 1 relay, kept here for later: uncomment in the template block below
+# (or press rest_command.vimar_open_door_1 from an automation) once tested.
+#   vimar_open_door_1:
+#     same payload with <locknumber>1</locknumber>
+
+template:
+  - button:
+      - name: "Cancelletto"
+        unique_id: vimar_door_2_relay
+        icon: mdi:gate
+        press:
+          - action: rest_command.vimar_open_door_2
