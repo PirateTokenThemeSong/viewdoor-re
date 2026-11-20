@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Vimar VIEW Door",
+        "description": "Collega l'API CGI LAN del citofono e il bridge QVII → RTSP.",
+        "data": {
+          "host": "Host del citofono",
+          "port": "Porta CGI",
+          "auth_code": "Out-auth-code (64 hex) o codice etichetta",
+          "name": "Nome",
+          "stream_url": "URL RTSP dello stream",
+          "two_way_audio": "Dichiara il supporto two-way audio (sperimentale)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossibile raggiungere il citofono.",
+      "invalid_auth": "Il citofono ha rifiutato il codice di autenticazione.",
+      "device_error": "Il citofono ha restituito un errore.",
+      "invalid_host": "Inserisci un host o un IP valido.",
+      "invalid_stream_url": "Inserisci l'URL RTSP servito dal bridge.",
+      "two_way_requires_rtsp": "Il two-way audio richiede un URL RTSP.",
+      "unknown": "Errore inatteso."
+    },
+    "abort": {
+      "already_configured": "Questo citofono è già configurato."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni Vimar VIEW Door",
+        "description": "Modifica URL del bridge o token senza riaggiungere il dispositivo.",
+        "data": {
+          "host": "Host del citofono",
+          "port": "Porta CGI",
+          "auth_code": "Out-auth-code (64 hex) o codice etichetta",
+          "name": "Nome",
+          "stream_url": "URL RTSP dello stream",
+          "two_way_audio": "Dichiara il supporto two-way audio (sperimentale)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossibile raggiungere il citofono.",
+      "invalid_auth": "Il citofono ha rifiutato il codice di autenticazione.",
+      "device_error": "Il citofono ha restituito un errore.",
+      "invalid_host": "Inserisci un host o un IP valido.",
+      "invalid_stream_url": "Inserisci l'URL RTSP servito dal bridge.",
+      "two_way_requires_rtsp": "Il two-way audio richiede un URL RTSP.",
+      "unknown": "Errore inatteso."
+    }
+  }
+}

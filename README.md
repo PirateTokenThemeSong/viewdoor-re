@@ -1,107 +1,129 @@
 <img src="assets/icon.svg" width="64" height="64" alt="">
 
-# viewdoor-re
+# Vimar VIEW Door — Home Assistant integration
 
-Reverse engineering of **Vimar VIEW Door V2.2.11** (`com.vimar.viewdoor`), a
-white-label of the **Qualvision** ("QvCbb" / TDK-cloud) doorbell platform
-(Elvox `IDS9457W`, `IDS9470QW`, `IDS9475W`, `IDS9483QW`).
+Custom integration for **Vimar VIEW Door** (Qualvision QVII) doorbells such as
+the Elvox `IDS9457W`. It exposes the live camera and the two door relays as
+native Home Assistant entities, with an optional **two-way audio capability**
+for the HA 2026.11 “Start talking” UI.
 
-Goal: get a **video stream** and a **local API for the two door-open relays**.
+> This branch (`ha-integration`) is the integration-first rewrite. The
+> reverse-engineering write-up, protocol notes and standalone tools remain on
+> the [`main`](https://github.com/PirateTokenThemeSong/viewdoor-re/tree/main)
+> branch and in [`docs/`](docs/).
 
-* Protocol write-up: [docs/PROTOCOL.md](docs/PROTOCOL.md)
-* Video stream, without the emulator: [docs/STREAM.md](docs/STREAM.md)
-* Tooling: `tools/`
+## Entities
 
-## TL;DR of the findings
+| entity | what it does |
+|--------|--------------|
+| `camera.cancelletto` | live RTSP stream from the QVII → RTSP bridge |
+| `button.cancelletto` | fires relay **2** (pedestrian gate) |
+| `button.cancelletto_relay_1` | fires relay **1** (second output) |
 
-| item | result |
-|------|--------|
-| Local control API | `POST http(s)://<doorbell>/tdkcgi`, XML envelope |
-| Auth | `username=adminapp2`, `password=sha256(device verification code)`, `passwordencode=1` (+ optional HTTP Digest) |
-| Door relays | `set.device.opendoor` → `<door>channel</door><locknumber>1|2</locknumber>` |
-| Relay list | `get.device.attachInfo` (the two buttons) |
-| RTSP | **not listening** (554 closed, all 65k ports checked). Video is the proprietary Qualvision QVII stream on **TCP 34567** |
-| Audio | ⚠️ **not sent by this firmware in idle LAN preview** (0 E3 frames in 60 s, streams 1/2). The bridge now auto-enables G.711 if the doorbell ever sends it — probe with `tools/audio_probe.py` |
-| LAN media handshake | ✅ accepted (`0xA9`, status 0), device forces **AES-256 / SHA256** (`crypto_mode=2`) |
-| Stream key | ⛔ the 32-byte AES key lives in the cloud; `get.device.streamkey` returns `-1` on this firmware — [how to get it](docs/STREAM.md) |
-| RTSP config | firmware exposes `<rtspport>` / `<rtspurl>` in `get.network.config` (needs the verification code to read/toggle) |
-| ONVIF | SDK supports it (`get.onvif.pwd` / `set.onvif.pwd`), but no ONVIF service runs by default |
-| Cloud | MyVimar SSO → Qualvision OAuth2 (`vimar.qvcloud.net`) works; LAN CGI does not need it |
+The camera declares `CameraEntityCapabilities(two_way_audio=True)` only when
+the option is enabled. The actual microphone path still depends on a
+backchannel-capable bridge; see [Two-way audio](#two-way-audio).
 
-## Tooling
+## Architecture
 
-```bash
-# locate the doorbell on the LAN (HTTP "Server: Qualvision -HTTPServer" + port 34567)
-python tools/find_doorbell.py
-python tools/find_doorbell.py --net 192.168.1.0/24
-
-# authenticate and dump model / network / RTSP fields / relays
-python tools/viewdoor.py probe  --host 192.168.1.50 --code <VERIFICATION_CODE>
-
-# list the lock outputs ("Door 1", "Door 2")
-python tools/viewdoor.py doors  --host 192.168.1.50 --code <VERIFICATION_CODE>
-
-# open relay 1 (channel 0) / relay 2
-python tools/viewdoor.py open 1 --host 192.168.1.50 --code <VERIFICATION_CODE>
-python tools/viewdoor.py open 2 --host 192.168.1.50 --code <VERIFICATION_CODE>
-
-# test the door-open password without opening anything
-python tools/viewdoor.py check-password 1234 --host 192.168.1.50 --code <CODE>
-
-# try to locate an RTSP stream (one DESCRIBE at a time, single-stream device)
-python tools/viewdoor.py rtsp --host 192.168.1.50 --code <VERIFICATION_CODE>
-
-# arbitrary command
-python tools/viewdoor.py raw get.system.ability --host 192.168.1.50 --code <CODE>
-
-# if you photograph the QR sticker on the doorbell, decode UID + code from it
-python tools/decode_qr.py label.jpg
+```
+Home Assistant                         LAN
+┌──────────────────────┐   RTSP :8556   ┌─────────────────────┐   QVII :34567   ┌──────────┐
+│ camera entity        │ ─────────────► │ vimar-stream bridge │ ──────────────► │ doorbell │
+│ button entities      │                └─────────────────────┘                 └──────────┘
+│ go2rtc (WebRTC)      │   HTTP :80 /tdkcgi ───────────────────────────────────►
+└──────────────────────┘
 ```
 
-Useful flags: `--scheme http|https|auto`, `--port`, `--user`, `--security`,
-`--debug`, `--hash on|off` (door password hashing, default `on`).
+* The **bridge** is the existing single-session QVII → RTSP service
+  ([`homeassistant/vimar_bridge.py`](homeassistant/vimar_bridge.py)).
+* The **integration** never speaks QVII itself. It creates the entities, calls
+  `/tdkcgi` for the relays, and gives HA an RTSP source it can stream.
+* `go2rtc` (shipped with HA 2026.11) provides WebRTC when available. The
+  integration adds the RTSP source to go2rtc automatically through HA’s camera
+  platform / go2rtc WebRTC provider.
 
-`<VERIFICATION_CODE>` is the password printed **below the QR code on the
-device label** (8 uppercase letters, or 4–16 digits). The app's own hint says:
-*"input UID (12 letters and numbers) and password: 4–16 numbers (if defined)
-or 8 uppercase letters, usually you can find it below QR code"*. It is also
-what the LAN "add device" dialog asks for. The QR itself encodes
-`<ap> <uid> <code> <model>` (V1) or `{"v":2,"u":…,"c":…}` (V2).
+## Requirements
 
-## How the token was obtained
+* Home Assistant **2026.11** or newer (for `CameraEntityCapabilities`).
+* The **vimar-stream bridge** reachable from HA, e.g.
+  `rtsp://127.0.0.1:8556/live`.
+* The doorbell’s **out-auth-code** (64 hex) from the Qualvision cloud, or the
+  label code printed under the QR sticker.
+* HTTPS for microphone access; enable **Settings → System → Labs → Two-way
+  audio** when you want the native talk button.
 
-The `/tdkcgi` password is the device's **`out-auth-code`** (64 hex), not
-`sha256(sticker code)`.
+## Install (manual)
 
-Reproduced end-to-end:
+1. Copy the integration folder:
 
-1. Installed the APK in an **x86_64 API 30 Google APIs** emulator (it has ARM
-   translation, `libndk_translation.so`; API 33 x86 images do not).
-2. Logged in with the MyVimar account in the app (WebView SSO).
-3. The app's `shared_prefs/save.xml` then contained the region‑1 endpoints and
-   the app's registered client id (`calc`).
-4. Used that client id to log in to `https://r1-2-sec.qvcloud.net/auth/user`
-   (`command=login` → session) and called `command=get-device-list`, which
-   returns `<out-auth-code>` for the doorbell.
-5. Verified against the device: `get.product.info` → `error 0`.
+   ```bash
+   cp -r custom_components/vimar_door /config/custom_components/
+   ```
 
-Bonus: `get.device.qrcode` returns the label payload
-`<ap-name> <uid> <sticker-code> <model> <mac>`.
+2. If you used the old YAML package (`homeassistant/vimar_doors.yaml`), remove it
+   first so `button.cancelletto` does not exist twice. Restart Home Assistant.
 
-## Status
+3. **Settings → Devices & Services → Add integration → Vimar VIEW Door**.
 
-* ✅ Local CGI auth + relay command (`set.device.opendoor`) implemented.
-* ✅ Token recovered and verified; no door command has been fired yet.
-* ✅ `get.product.info`, `get.device.qrcode`, `get.device.status`,
-  `get.product.time`, `get.tfcard.info`, upgrade* work on this firmware.
-* ⛔ `get.network.config`, `get.system.ability`, `get.device.attachInfo`,
-  `get.onvif.pwd` return `-1` (not implemented on the VDP firmware).
-* ⛔ The doorbell has **no RTSP server** (554 closed, also while streaming) and
-  no ONVIF. Video is the proprietary QVII stream on TCP 34567.
+4. Fill in:
 
-## Notes / safety
+   | field | example | notes |
+   |-------|---------|-------|
+   | host | `192.168.1.50` | doorbell IP or hostname |
+   | port | `80` | LAN CGI port |
+   | auth code | `<OUT_AUTH_CODE>` | 64-hex out-auth-code, or label code |
+   | name | `Cancelletto` | entity/device name |
+   | RTSP stream URL | `rtsp://127.0.0.1:8556/live` | output of the bridge |
+   | two-way audio | off | see below |
 
-* The doorbell allows **one concurrent video stream**; the RTSP probe is
-  serial on purpose.
-* Door relays are physical outputs — do not fire them at random.
-* `work/` (extracted APK, jadx output, scratch scripts) is git-ignored.
+The token is stored in HA’s config entry (`.storage`), never in this repo.
+
+## HACS
+
+This integration lives on the `ha-integration` branch. HACS normally installs
+from the repository’s default branch; either merge this branch or create a
+release/tag from it and point HACS at that version. A tagged release is the
+cleanest option once the branch is stable.
+
+## Two-way audio
+
+Home Assistant 2026.11 can show a **Start talking** button when:
+
+1. the camera entity declares two-way audio;
+2. the stream is served over **WebRTC** (go2rtc);
+3. the **Two-way audio** Labs feature is enabled;
+4. HA is opened over **HTTPS**.
+
+This integration provides step 1. Steps 2–4 are already available in the HA
+instance. The missing piece is the **backchannel** on the bridge side: an
+RTSP/exec audio path that receives PCMU/PCMA from go2rtc and forwards it to
+`quii-helper`’s `LanTalkSession` → doorbell speaker.
+
+The `two_way_audio` option is therefore **off by default** and marked
+experimental. Enabling it before the talk path exists makes HA show a button
+that cannot deliver audio.
+
+## Bridge
+
+The bridge is documented in [`docs/STREAM.md`](docs/STREAM.md). It enforces:
+
+* one QVII session at a time (the doorbell allows only one);
+* lazy open/close based on viewers;
+* a hard viewing cap and black-frame recovery.
+
+The integration can use a bridge on the same host (`127.0.0.1`) or another
+machine; just set the RTSP URL accordingly.
+
+## Reverse engineering
+
+* [`docs/PROTOCOL.md`](docs/PROTOCOL.md) — `/tdkcgi`, auth, relays, cloud flow.
+* [`docs/STREAM.md`](docs/STREAM.md) — QVII handshake, AES key, RTSP bridge.
+* [`tools/`](tools/) — doorbell discovery, CGI probe, audio probe, QR decode.
+
+## Safety
+
+* Door relays are physical outputs; only press the buttons deliberately.
+* The doorbell allows **one concurrent video stream**.
+* Keep the out-auth-code out of public configs and screenshots.
+* This is an unofficial integration, not affiliated with Vimar or Qualvision.

@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Vimar VIEW Door",
+        "description": "Connect to the doorbell's LAN CGI API and the QVII → RTSP bridge.",
+        "data": {
+          "host": "Doorbell host",
+          "port": "CGI port",
+          "auth_code": "Out-auth-code (64 hex) or label code",
+          "name": "Name",
+          "stream_url": "RTSP stream URL",
+          "two_way_audio": "Declare two-way audio support (experimental)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the doorbell.",
+      "invalid_auth": "The doorbell rejected the auth code.",
+      "device_error": "The doorbell returned an error.",
+      "invalid_host": "Enter a doorbell host or IP address.",
+      "invalid_stream_url": "Enter the RTSP URL served by the bridge.",
+      "two_way_requires_rtsp": "Two-way audio requires an RTSP stream URL.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This doorbell is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Vimar VIEW Door options",
+        "description": "Change the bridge URL or the tokens without re-adding the device.",
+        "data": {
+          "host": "Doorbell host",
+          "port": "CGI port",
+          "auth_code": "Out-auth-code (64 hex) or label code",
+          "name": "Name",
+          "stream_url": "RTSP stream URL",
+          "two_way_audio": "Declare two-way audio support (experimental)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the doorbell.",
+      "invalid_auth": "The doorbell rejected the auth code.",
+      "device_error": "The doorbell returned an error.",
+      "invalid_host": "Enter a doorbell host or IP address.",
+      "invalid_stream_url": "Enter the RTSP URL served by the bridge.",
+      "two_way_requires_rtsp": "Two-way audio requires an RTSP stream URL.",
+      "unknown": "Unexpected error."
+    }
+  }
+}
