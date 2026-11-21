@@ -53,6 +53,12 @@ Environment:
 | `KEY_REFRESH` | `1` | enable automatic stream-key refresh |
 | `KEY_REFRESH_AFTER` | `1` | consecutive silent sessions before refreshing |
 | `KEY_REFRESH_COOLDOWN` | `600` | seconds between cloud refreshes |
+| `RING_WATCH` | `1` | poll the QV CALL journal for doorbell rings |
+| `RING_WEBHOOK_URL` | empty | HA webhook receiving the ring JSON |
+| `RING_POLL_SECONDS` | `5` | call-journal poll interval |
+| `CLOUD_AUTH_URL` | `r1-2-sec` | QV user-auth base URL |
+| `CLOUD_ALARM_URL` | `shi-20-sec:4443/UserAlarm` | QV alarm service URL |
+| `CLOUD_DEVICE_ID` | from credentials | override the call-journal camera UID |
 | `CAMERA_DEVICE_HOST` | `192.168.1.50` | doorbell IP |
 
 ## go2rtc
@@ -76,6 +82,28 @@ streams:
 The “Start talking” button appears in the camera entity's more-info dialog.
 The existing `custom:webrtc-camera` card only receives audio; it does not send
 the microphone.
+
+## Doorbell ring detection
+
+The outdoor button is not raised on the local QVII video session.  The Vimar
+app receives a cloud push with `AlarmEvent=19` (`CALL`); the same event is in
+the QV `UserAlarm` journal.  `vimar_ring.py` polls that read-only journal every
+`RING_POLL_SECONDS`, establishes a baseline at startup, and posts only **new**
+CALL 19 records to `RING_WEBHOOK_URL`.
+
+```json
+{"event":"ring","source":"vimar_cloud_call","device_id":"…","channel":1,
+ "record_id":"…","alarm_id":"…","time":"…","ring_count":1,"timestamp":0}
+```
+
+It does not answer calls, change read state, register a push token, open the
+door or read media.  If the cloud login fails, `/status` reports
+`ring.last_error` and retries after 30 s; there is no false ring.  A valid
+`cloud-account.json` is required (same account as the app).  The watcher does
+not invent a local event when the account is unavailable.
+
+See [the HA integration notes](../docs/INTEGRATION.md#doorbell-ring) for the
+webhook automation example.
 
 ## If video stops but the app works
 

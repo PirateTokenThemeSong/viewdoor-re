@@ -119,6 +119,57 @@ Tap the card, wait for the live stream, then press **Start talking**. The
 browser needs microphone permission. The existing `custom:webrtc-camera` card
 remains useful for listening; the native dialog carries both directions.
 
+## Doorbell ring
+
+This is a **cloud** event, not a local QVII video event.  The Android app's
+`FcmPushService` receives the QV push branch with `AlarmEvent=19`
+(`QvPushInfo.ALARM_TYPE_CALL`) and opens `PushCallActivity`.  The call journal
+(`UserAlarm` / `client-query-recordlist`) contains the same `event=19` row.
+Event 20 is an answered/handled call, not a new ring; 38 is an indoor call.
+
+The bridge's `vimar_ring.py` polls the journal every five seconds, baselines
+the existing rows on startup, and sends new CALL 19 rows to an HA webhook.
+It is read-only: no answer, no read-state update, no door command, no media
+download and no push-token registration.
+
+Enable it in the bridge environment:
+
+```yaml
+RING_WATCH: "1"
+RING_WEBHOOK_URL: "http://127.0.0.1:8123/api/webhook/<webhook-id>"
+RING_POLL_SECONDS: "5"
+CLOUD_AUTH_URL: "https://r1-2-sec.qvcloud.net/auth/user"
+CLOUD_ALARM_URL: "https://shi-20-sec.qvcloud.net:4443/UserAlarm"
+```
+
+Create a **webhook** automation in HA (the bridge and HA share the host
+network, so `127.0.0.1` is correct):
+
+```yaml
+- id: vimar_door_ring
+  alias: Vimar - qualcuno ha suonato
+  trigger:
+    - platform: webhook
+      webhook_id: <webhook-id>
+      allowed_methods: [POST]
+      local_only: true
+  action:
+    - service: notify.mobile_app_<phone>
+      data:
+        title: Cancelletto
+        message: Qualcuno ha suonato.
+```
+
+Choose the action you want (notification, snapshot, light, TTS, ...).  The
+webhook payload includes `channel`, `record_id`, `alarm_id`, `time` and
+`ring_count`.  `/status` exposes `ring.enabled`, `ring.ok`, `ring.last_error`,
+`ring.ring_count` and `ring.last_record` for diagnostics.
+
+The account file must be a **fresh** QV account login.  An OAuth token alone
+is not enough: the user login also needs a valid `password`; when it expires,
+`ring.last_error` starts with `cloud-login-...`.  Do not put the account file
+or the webhook id in this public repository.
+
 ## Testing without the doorbell
 
 * `tests/test_api.py` covers password encoding and the XML envelope.

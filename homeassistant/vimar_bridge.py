@@ -81,6 +81,16 @@ except ImportError:
     except ImportError:  # pragma: no cover
         refresh_stream_key = None  # type: ignore[assignment]
 
+try:
+    from .vimar_ring import DEFAULT_ALARM_URL, DEFAULT_AUTH_URL, RingWatcher
+except ImportError:
+    try:
+        from vimar_ring import DEFAULT_ALARM_URL, DEFAULT_AUTH_URL, RingWatcher
+    except ImportError:  # pragma: no cover
+        RingWatcher = None  # type: ignore[assignment]
+        DEFAULT_AUTH_URL = "https://r1-2-sec.qvcloud.net/auth/user"
+        DEFAULT_ALARM_URL = "https://shi-20-sec.qvcloud.net:4443/UserAlarm"
+
 CREDENTIALS = os.environ.get("CREDENTIALS", "/config/vimar/stream_credentials.json")
 BIND = os.environ.get("RTSP_BIND", "0.0.0.0")
 PORT = int(os.environ.get("RTSP_PORT", "8556"))
@@ -120,6 +130,15 @@ KEY_REFRESH = os.environ.get("KEY_REFRESH", "1").strip().lower() not in {
 }
 KEY_REFRESH_AFTER = int(os.environ.get("KEY_REFRESH_AFTER", "1"))
 KEY_REFRESH_COOLDOWN = float(os.environ.get("KEY_REFRESH_COOLDOWN", "600"))
+RING_WATCH = os.environ.get("RING_WATCH", "1").strip().lower() not in {
+    "0", "false", "no", "off", ""
+}
+RING_WEBHOOK_URL = os.environ.get("RING_WEBHOOK_URL", "").strip()
+RING_POLL_SECONDS = float(os.environ.get("RING_POLL_SECONDS", "5"))
+RING_ERROR_SECONDS = float(os.environ.get("RING_ERROR_SECONDS", "30"))
+RING_AUTH_URL = os.environ.get("CLOUD_AUTH_URL", DEFAULT_AUTH_URL)
+RING_ALARM_URL = os.environ.get("CLOUD_ALARM_URL", DEFAULT_ALARM_URL)
+CLOUD_DEVICE_ID = os.environ.get("CLOUD_DEVICE_ID", "").strip()
 
 _log_lock = threading.Lock()
 
@@ -431,6 +450,7 @@ class Bridge:
         self.last_key_refresh = 0.0
         self.key_refresh_error = None
         self.key_lock = threading.Lock()
+        self.ring_watcher = None
 
     # -- session management ------------------------------------------------
     def _spawn(self):
@@ -959,6 +979,9 @@ class Bridge:
                     "after": KEY_REFRESH_AFTER,
                     "cooldown": KEY_REFRESH_COOLDOWN,
                 },
+                "ring": self.ring_watcher.status()
+                if self.ring_watcher is not None
+                else {"enabled": False},
                 "rtsp": f"rtsp://{BIND}:{PORT}/live",
             }
 
@@ -992,6 +1015,8 @@ def main() -> int:
     def _term(*_args) -> None:
         log("SIGTERM: closing")
         bridge.shutdown.set()
+        if bridge.ring_watcher is not None:
+            bridge.ring_watcher.stop()
         if bridge.talk_server is not None:
             bridge.talk_server.stop()
         with bridge.cond:
@@ -1021,6 +1046,33 @@ def main() -> int:
                 name="vimar-talk",
                 daemon=True,
             ).start()
+
+    if RING_WATCH and RingWatcher is not None:
+        device_id = CLOUD_DEVICE_ID
+        if not device_id:
+            try:
+                with open(CREDENTIALS, encoding="utf-8") as handle:
+                    device_id = str(json.load(handle).get("device_id") or "")
+            except (OSError, ValueError):
+                device_id = ""
+        if device_id:
+            bridge.ring_watcher = RingWatcher(
+                CLOUD_ACCOUNT,
+                device_id,
+                auth_url=RING_AUTH_URL,
+                alarm_url=RING_ALARM_URL,
+                webhook_url=RING_WEBHOOK_URL,
+                poll_seconds=RING_POLL_SECONDS,
+                error_seconds=RING_ERROR_SECONDS,
+                log=lambda message: log(message),
+            )
+            bridge.ring_watcher.start()
+        else:
+            log("ring watcher disabled: no cloud device id")
+    elif RING_WATCH:
+        log("ring watcher unavailable (vimar_ring.py not importable)")
+    else:
+        log("ring watcher disabled by RING_WATCH")
 
     threading.Thread(target=status_server, args=(bridge,), daemon=True).start()
     threading.Thread(target=bridge.monitor, daemon=True).start()
