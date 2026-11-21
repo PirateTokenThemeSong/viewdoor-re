@@ -43,6 +43,7 @@ class VimarDoorCamera(Camera):
 
     def __init__(self, entry: ConfigEntry, client: VimarClient) -> None:
         """Initialize the camera."""
+        super().__init__()
         self._config = {**entry.data, **entry.options}
         self._client = client
         self._attr_name = self._config[CONF_NAME]

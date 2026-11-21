@@ -68,6 +68,11 @@ _attr_camera_entity_capabilities = CameraEntityCapabilities(
 For the native **Start talking** button HA also requires WebRTC, the Labs
 preview feature, and HTTPS. Those are environment settings.
 
+Verified on HA 2026.11.1: the camera entity reports `two_way_audio: true`, an
+HA camera WebRTC offer connects with audio and video, and the bridge reports
+`talk.active`, `talk.mic_active` and `talk.route_ready` while the browser's
+microphone track is connected.
+
 The backend implements both directions:
 
 * **Listen** — the bridge opens a talk channel and sends `type 13 disable`
@@ -77,18 +82,42 @@ The backend implements both directions:
   508 E3 frames in 20 s and a 10 s RTSP recording with signal.
 * **Talk / microphone** — the RTSP server advertises a `sendonly` PCMA track
   (`trackID=2`); go2rtc opens the second session and the talk server forwards
-  the PCMA as 512-sample A-law blocks on the routed talk channel. The
-  microphone-to-speaker path still needs an audible test.
+  the PCMA as 512-sample A-law blocks on the routed talk channel. Verified
+  with a deliberately silent browser track: 1007 outbound audio packets and
+  the bridge's `mic_active`/`route_ready` true; no audible test signal was
+  sent to the gate.
 
 The integration stream URL stays the bridge URL
 `rtsp://127.0.0.1:8556/live`; no extra go2rtc source is required. go2rtc is
 only Home Assistant's WebRTC provider.
 
-**Listening verified live.** With the routed talk session, the doorbell sent
-508 E3 frames in 20 s and the RTSP audio recording contained signal (peak
-3008, RMS 183.5). The microphone-to-gate-speaker path uses the same routed
-channel and the RTSP backchannel, but an audible speaker test remains. Keep
-`two_way_audio` off until you test the gate speaker.
+**Both directions verified at transport level.** With the routed talk session,
+the doorbell sent 508 E3 frames in 20 s and the RTSP audio recording contained
+signal (peak 3008, RMS 183.5). In the HA WebRTC session the browser received
+153600 audio bytes and 131908 video bytes, while the silent microphone track
+produced 1007 outbound packets; the bridge reported `talk.active=true`,
+`mic_active=true` and `route_ready=true`. The only remaining physical check is
+an audible microphone-to-gate-speaker test. Until you do that test yourself,
+keep `two_way_audio` off on a production install.
+
+## Dashboard card
+
+The native **Start talking** control lives in the camera more-info dialog, not
+in `custom:webrtc-camera`. Add a button card that opens it:
+
+```yaml
+- type: button
+  entity: camera.cancelletto
+  name: Parla / ascolta (2 vie)
+  icon: mdi:phone-in-talk
+  show_state: false
+  tap_action:
+    action: more-info
+```
+
+Tap the card, wait for the live stream, then press **Start talking**. The
+browser needs microphone permission. The existing `custom:webrtc-camera` card
+remains useful for listening; the native dialog carries both directions.
 
 ## Testing without the doorbell
 
