@@ -30,6 +30,10 @@ Environment:
   AUDIO              1 to advertise a PCMA 8 kHz track and forward E3 audio
   TALK               1 to start the loopback PCMA -> QVII talk bridge
   TALK_PORT          loopback talk TCP port (8560, read by vimar_talk.py)
+  CLOUD_ACCOUNT      account JSON used to refresh a rotated stream key
+  KEY_REFRESH        1 to auto-refresh the stream key after silent failures
+  KEY_REFRESH_AFTER  consecutive failures before a refresh (1)
+  KEY_REFRESH_COOLDOWN  seconds between cloud refreshes (600)
 """
 
 from __future__ import annotations
@@ -60,12 +64,22 @@ from quii_helper.streaming.rtsp.sdp import build_h264_sdp
 from quii_helper.streaming.rtsp.transport import RtpTransport
 
 try:  # package import (tests / integration)
-    from .vimar_talk import TalkServer
+    from . import vimar_talk as talk_module
 except ImportError:  # script import (/config/vimar/serve_rtsp.py)
     try:
-        from vimar_talk import TalkServer
+        import vimar_talk as talk_module
     except ImportError:  # pragma: no cover - optional backend
-        TalkServer = None  # type: ignore[assignment]
+        talk_module = None  # type: ignore[assignment]
+
+TalkServer = talk_module.TalkServer if talk_module is not None else None
+
+try:
+    from .vimar_cloud import refresh_stream_key
+except ImportError:
+    try:
+        from vimar_cloud import refresh_stream_key
+    except ImportError:  # pragma: no cover
+        refresh_stream_key = None  # type: ignore[assignment]
 
 CREDENTIALS = os.environ.get("CREDENTIALS", "/config/vimar/stream_credentials.json")
 BIND = os.environ.get("RTSP_BIND", "0.0.0.0")
@@ -98,6 +112,14 @@ TALK = os.environ.get("TALK", "1").strip().lower() not in {
     "0", "false", "no", "off", ""
 }
 TALK_PORT = int(os.environ.get("TALK_PORT", "8560"))
+CLOUD_ACCOUNT = os.environ.get(
+    "CLOUD_ACCOUNT", "/config/vimar/cloud-account.json"
+)
+KEY_REFRESH = os.environ.get("KEY_REFRESH", "1").strip().lower() not in {
+    "0", "false", "no", "off", ""
+}
+KEY_REFRESH_AFTER = int(os.environ.get("KEY_REFRESH_AFTER", "1"))
+KEY_REFRESH_COOLDOWN = float(os.environ.get("KEY_REFRESH_COOLDOWN", "600"))
 
 _log_lock = threading.Lock()
 
@@ -399,10 +421,14 @@ class Bridge:
         self.client_lock = threading.Lock()
         self.shutdown = threading.Event()
         self.talk_server = None
+        self.credentials_path = CREDENTIALS
+        self.last_key_refresh = 0.0
+        self.key_refresh_error = None
+        self.key_lock = threading.Lock()
 
     # -- session management ------------------------------------------------
     def _spawn(self):
-        saved = CameraStreamCredentials.load(CREDENTIALS)
+        saved = CameraStreamCredentials.load(self.credentials_path)
         cfg = AutonomousConfig(
             connection_mode="lan",
             device_host=DEVICE_HOST,
@@ -476,6 +502,46 @@ class Bridge:
         ):
             time.sleep(0.2)
 
+    def _maybe_refresh_key(self) -> None:
+        """Refresh a rotated QVII key after repeated silent play replies."""
+        if not KEY_REFRESH or refresh_stream_key is None:
+            return
+        if not os.path.exists(CLOUD_ACCOUNT):
+            self.key_refresh_error = f"missing {CLOUD_ACCOUNT}"
+            return
+        now = time.time()
+        if now - self.last_key_refresh < KEY_REFRESH_COOLDOWN:
+            return
+        if not self.key_lock.acquire(False):
+            return
+        try:
+            self.last_key_refresh = now
+            result = refresh_stream_key(
+                CLOUD_ACCOUNT, self.credentials_path
+            )
+            if not result.get("ok"):
+                self.key_refresh_error = result.get("error", "failed")
+                log(f"stream key refresh failed: {self.key_refresh_error}")
+                return
+            self.key_refresh_error = None
+            self.credentials_path = str(result["path"])
+            if talk_module is not None:
+                talk_module.CREDENTIALS = self.credentials_path
+            log(
+                "stream key refresh: changed=%s key_len=%s path=%s"
+                % (
+                    result.get("changed"),
+                    result.get("key_len"),
+                    self.credentials_path,
+                )
+            )
+            if result.get("changed"):
+                # The next attempt should use the new key immediately.
+                self.error_streak = 0
+                self.next_attempt_at = 0.0
+        finally:
+            self.key_lock.release()
+
     def _close_session(self, reason: str, drop_clients: bool) -> None:
         with self.cond:
             if self.stopping or self.session is None:
@@ -494,13 +560,15 @@ class Bridge:
         # Stay in the stopping state during the cooldown so no new session can
         # be opened while the doorbell is still releasing its single stream.
         delay = COOLDOWN
-        if reason in ("error", "stall"):
+        if reason in ("error", "stall", "startup_stall"):
             self.error_streak += 1
             delay = min(60.0, 5.0 * (2 ** min(self.error_streak - 1, 3)))
             log(
                 f"device backoff {delay:.0f}s "
                 f"(consecutive failures: {self.error_streak})"
             )
+            if self.error_streak >= KEY_REFRESH_AFTER:
+                self._maybe_refresh_key()
         time.sleep(delay)
         with self.cond:
             self.stopping = False
@@ -688,6 +756,20 @@ class Bridge:
                 log(f"session ended unexpectedly: {error!r}")
                 self._close_session("error", drop_clients=True)
                 continue
+            # A rotated stream key makes the doorbell accept TCP/setup/play
+            # but never send a frame.  Do not wait forever for the first
+            # keyframe; close and let the key refresher run.
+            if (
+                clients > 0
+                and not stream.server.video_ready.is_set()
+                and time.time() - self.started_at > START_TIMEOUT
+            ):
+                log(
+                    f"no video after {START_TIMEOUT:.0f}s startup timeout, "
+                    "restarting"
+                )
+                self._close_session("startup_stall", drop_clients=True)
+                continue
             # Hard cap: never let a viewer hold the doorbell for more than
             # MAX_SESSION seconds (it blocks the call button / other features).
             # After the cap the session is closed and no new one is allowed
@@ -856,6 +938,13 @@ class Bridge:
                 "talk": self.talk_server.status()
                 if self.talk_server is not None
                 else None,
+                "credentials_path": self.credentials_path,
+                "key_refresh": {
+                    "last": self.last_key_refresh,
+                    "error": self.key_refresh_error,
+                    "after": KEY_REFRESH_AFTER,
+                    "cooldown": KEY_REFRESH_COOLDOWN,
+                },
                 "rtsp": f"rtsp://{BIND}:{PORT}/live",
             }
 

@@ -178,8 +178,16 @@ The tool logs in, calls `get-device-token`, updates `stream_key` (and
 bridge (or wait for its next lazy session) after updating the live
 `/config/vimar/stream_credentials.json`.
 
+The bridge can do this automatically: it detects a session with no video after
+`START_TIMEOUT`, closes it, and after `KEY_REFRESH_AFTER` failures calls the
+same cloud flow (requires `/config/vimar/cloud-account.json`).  If the config
+directory is read-only it writes the fresh copy to
+`/tmp/vimar_credentials.json`.  `/status` shows `credentials_path` and
+`key_refresh`.
+
 The cloud record also carries `password-expired`; the current key tends to be
-valid for that window.  If video stops after a renewal, run the tool again.
+valid for that window.  If video stops after a renewal, the bridge refreshes
+itself; `tools/refresh_credentials.py` remains the manual path.
 
 ## 7. What is still missing
 

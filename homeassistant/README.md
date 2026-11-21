@@ -41,6 +41,10 @@ Environment:
 | `AUDIO` | `1` | always advertise/fill the PCMA track |
 | `TALK` | `1` | start the loopback talk server |
 | `TALK_PORT` | `8560` | loopback PCMA input |
+| `CLOUD_ACCOUNT` | `/config/vimar/cloud-account.json` | account JSON for automatic key refresh |
+| `KEY_REFRESH` | `1` | enable automatic stream-key refresh |
+| `KEY_REFRESH_AFTER` | `1` | consecutive silent sessions before refreshing |
+| `KEY_REFRESH_COOLDOWN` | `600` | seconds between cloud refreshes |
 | `CAMERA_DEVICE_HOST` | `192.168.1.50` | doorbell IP |
 
 ## go2rtc
@@ -67,15 +71,24 @@ the microphone.
 
 ## If video stops but the app works
 
-The 32-byte stream key rotated.  Refresh it from the cloud and update
-`/config/vimar/stream_credentials.json`:
+The 32-byte stream key rotated.  The bridge now recovers automatically when
+`/config/vimar/cloud-account.json` exists:
+
+* a session that opens but never produces video is closed after `START_TIMEOUT`
+  (20 s);
+* after `KEY_REFRESH_AFTER` (default 1) consecutive failures it calls
+  `get-device-token`, updates the credentials and retries;
+* if the config directory is mounted read-only it writes the fresh copy to
+  `/tmp/vimar_credentials.json` and uses that for both video and talk;
+* `/status` reports `credentials_path` and `key_refresh` (`last`, `error`).
+
+Manual refresh is still available:
 
 ```bash
 python tools/refresh_credentials.py   --account-json work/cloud-account.json   --out work/stream_credentials.json
 ```
 
-The bridge reads the file on its next session; restarting `vimar-stream` is
-the quickest way to clear a failed backoff.
+The cloud account file is secret; keep it mode 600 and out of the repo.
 
 ## Safety
 

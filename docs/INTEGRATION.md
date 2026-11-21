@@ -19,6 +19,7 @@ custom_components/vimar_door/
 homeassistant/
   vimar_bridge.py    QVII -> RTSP bridge (external process/container)
   vimar_talk.py      loopback PCMA -> LanTalkSession talk bridge
+  vimar_cloud.py     automatic rotated stream-key refresh
 bridge_tests/        offline RTSP/audio/talk tests
 docs/
   PROTOCOL.md, STREAM.md, TEST-DOORS.md
