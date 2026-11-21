@@ -119,9 +119,10 @@ the existing `custom:webrtc-camera` card receives audio but does not send the
 microphone.
 
 The `two_way_audio` option is **off by default** and still experimental: the
-code is tested offline with fake sessions, but the real doorbell speaker path
-has not been verified yet. Keep it off until you can safely test the gate
-speaker.
+audio track and the RTSP backchannel were tested with the real doorbell
+(video + two PCMA tracks, talk session opens while preview stays alive), but
+actual microphone audio to the gate speaker has not been verified yet. Keep it
+off until you can safely test the speaker.
 
 ## Bridge
 

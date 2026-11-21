@@ -65,6 +65,18 @@ The “Start talking” button appears in the camera entity's more-info dialog.
 The existing `custom:webrtc-camera` card only receives audio; it does not send
 the microphone.
 
+## If video stops but the app works
+
+The 32-byte stream key rotated.  Refresh it from the cloud and update
+`/config/vimar/stream_credentials.json`:
+
+```bash
+python tools/refresh_credentials.py   --account-json work/cloud-account.json   --out work/stream_credentials.json
+```
+
+The bridge reads the file on its next session; restarting `vimar-stream` is
+the quickest way to clear a failed backoff.
+
 ## Safety
 
 * One QVII video stream at a time; talk is a separate TCP connection.

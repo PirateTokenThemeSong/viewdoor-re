@@ -156,6 +156,31 @@ then add it to `go2rtc.yaml` like the other four cameras:
 
 and the camera shows up in **Casa → Telecamere** with the WebRTC card.
 
+## Stream-key rotation
+
+The 32-byte `data-encode-key` is **not** the same as the `/tdkcgi`
+`out-auth-code`, and it can rotate when the cloud token is renewed, the
+device is re-paired, or the app re-authenticates.  Symptom:
+
+- the Vimar app still shows live video;
+- the bridge opens TCP 34567 and the QVII setup succeeds;
+- the play receives **no reply at all** (not even a rejection);
+- no media frames arrive.
+
+Fetch a fresh key (the account file is local and gitignored):
+
+```bash
+python tools/refresh_credentials.py   --account-json work/cloud-account.json   --out work/stream_credentials.json
+```
+
+The tool logs in, calls `get-device-token`, updates `stream_key` (and
+`auth_code` if it changed), and prints only booleans/lengths.  Restart the
+bridge (or wait for its next lazy session) after updating the live
+`/config/vimar/stream_credentials.json`.
+
+The cloud record also carries `password-expired`; the current key tends to be
+valid for that window.  If video stops after a renewal, run the tool again.
+
 ## 7. What is still missing
 
 | item | state |

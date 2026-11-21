@@ -84,10 +84,11 @@ The integration stream URL stays the bridge URL
 `rtsp://127.0.0.1:8556/live`; no extra go2rtc source is required. go2rtc is
 only Home Assistant's WebRTC provider.
 
-**Not verified on hardware yet.** The talk handshake works (A-law, `ready`)
-and the offline tests cover framing/transcoding, but simultaneous preview +
-talk to the real gate speaker still needs a controlled test. Keep
-`two_way_audio` off until then.
+**Partially verified on hardware.** The RTSP audio tracks and the backchannel
+were tested against the real doorbell: video + two PCMA tracks, and an RTSP
+client SETUP of `trackID=2` opened a talk session (A-law) while preview stayed
+alive. Actual microphone audio to the gate speaker still needs a controlled
+test. Keep `two_way_audio` off until then.
 
 ## Testing without the doorbell
 
