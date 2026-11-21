@@ -3,13 +3,13 @@
     "step": {
       "user": {
         "title": "Vimar VIEW Door",
-        "description": "Connect to the doorbell's LAN CGI API and the QVII → RTSP bridge.",
+        "description": "Connect to the doorbell's LAN CGI API and the QVII → RTSP bridge. The bridge at :8556 also carries the PCMA talk backchannel; go2rtc is only Home Assistant's WebRTC provider.",
         "data": {
           "host": "Doorbell host",
           "port": "CGI port",
           "auth_code": "Out-auth-code (64 hex) or label code",
           "name": "Name",
-          "stream_url": "RTSP stream URL",
+          "stream_url": "RTSP stream URL (bridge :8556)",
           "two_way_audio": "Declare two-way audio support (experimental)"
         }
       }
@@ -31,13 +31,13 @@
     "step": {
       "init": {
         "title": "Vimar VIEW Door options",
-        "description": "Change the bridge URL or the tokens without re-adding the device.",
+        "description": "Change the bridge URL or the tokens without re-adding the device. Two-way audio uses the bridge RTSP backchannel.",
         "data": {
           "host": "Doorbell host",
           "port": "CGI port",
           "auth_code": "Out-auth-code (64 hex) or label code",
           "name": "Name",
-          "stream_url": "RTSP stream URL",
+          "stream_url": "RTSP stream URL (bridge :8556)",
           "two_way_audio": "Declare two-way audio support (experimental)"
         }
       }

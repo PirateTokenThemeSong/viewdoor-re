@@ -30,9 +30,9 @@ backchannel-capable bridge; see [Two-way audio](#two-way-audio).
 Home Assistant                         LAN
 ┌──────────────────────┐   RTSP :8556   ┌─────────────────────┐   QVII :34567   ┌──────────┐
 │ camera entity        │ ─────────────► │ vimar-stream bridge │ ──────────────► │ doorbell │
-│ button entities      │                └─────────────────────┘                 └──────────┘
-│ go2rtc (WebRTC)      │   HTTP :80 /tdkcgi ───────────────────────────────────►
-└──────────────────────┘
+│ button entities      │                │  + vimar_talk :8560 │ ◄── talk ────── │ speaker  │
+│ go2rtc (WebRTC)      │   HTTP :80 /tdkcgi ───────────────────────────────────► │          │
+└──────────────────────┘                └─────────────────────┘                 └──────────┘
 ```
 
 * The **bridge** is the existing single-session QVII → RTSP service
@@ -95,14 +95,33 @@ Home Assistant 2026.11 can show a **Start talking** button when:
 3. the **Two-way audio** Labs feature is enabled;
 4. HA is opened over **HTTPS**.
 
-This integration provides step 1. Steps 2–4 are already available in the HA
-instance. The missing piece is the **backchannel** on the bridge side: an
-RTSP/exec audio path that receives PCMU/PCMA from go2rtc and forwards it to
-`quii-helper`’s `LanTalkSession` → doorbell speaker.
+This integration provides step 1; the bridge now provides both audio paths:
 
-The `two_way_audio` option is therefore **off by default** and marked
-experimental. Enabling it before the talk path exists makes HA show a button
-that cannot deliver audio.
+* **Listen** — the RTSP server always advertises a PCMA 8 kHz track and
+  forwards `E3` frames when the doorbell sends them (A-law; mu-law/PCM16 are
+  transcoded). In idle preview the track is silent.
+* **Talk** — `homeassistant/vimar_talk.py` listens on `127.0.0.1:8560`,
+  buffers the PCMA from the RTSP backchannel into 40 ms frames and sends them over
+  `quii-helper`’s `LanTalkSession` → doorbell speaker.
+
+Wiring:
+
+1. Run the bridge with `AUDIO=1 TALK=1` (default).
+2. The integration’s stream URL stays the bridge URL
+   `rtsp://127.0.0.1:8556/live`; the bridge itself advertises the
+   `sendonly` PCMA track and accepts the second RTSP session.
+3. Enable **two-way audio** in the integration options.
+4. Enable **Settings → System → Labs → Two-way audio** and open HA over HTTPS.
+   go2rtc is only HA’s WebRTC provider; no extra go2rtc source is needed.
+
+The **Start talking** button appears in the camera entity’s more-info dialog;
+the existing `custom:webrtc-camera` card receives audio but does not send the
+microphone.
+
+The `two_way_audio` option is **off by default** and still experimental: the
+code is tested offline with fake sessions, but the real doorbell speaker path
+has not been verified yet. Keep it off until you can safely test the gate
+speaker.
 
 ## Bridge
 

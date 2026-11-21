@@ -27,7 +27,9 @@ Environment:
   COOLDOWN_SECONDS   pause between a close and the next open (3)
   START_TIMEOUT      wait for the first keyframe/SPS before letting viewers in
   STALL_SECONDS      restart if no video for this long while viewers are on
-  AUDIO              1 to publish native G.711 audio when the doorbell sends it
+  AUDIO              1 to advertise a PCMA 8 kHz track and forward E3 audio
+  TALK               1 to start the loopback PCMA -> QVII talk bridge
+  TALK_PORT          loopback talk TCP port (8560, read by vimar_talk.py)
 """
 
 from __future__ import annotations
@@ -41,12 +43,29 @@ import sys
 import threading
 import time
 import urllib.request
+from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from urllib.parse import urlsplit
+
 import quii_helper.camera.streaming.rtsp as camera_rtsp
+import quii_helper.streaming.rtsp.server as rtsp_server
 from quii_helper import AutonomousConfig, Camera, CameraStreamCredentials
+from quii_helper.media.audio.g711 import decode_g711, encode_g711
 from quii_helper.streaming.rtp.g711 import G711Format
 from quii_helper.streaming.rtsp import RtspH264Server
+from quii_helper.streaming.rtsp.client import RtspClient
+from quii_helper.streaming.rtsp.request import parse_request
+from quii_helper.streaming.rtsp.sdp import build_h264_sdp
+from quii_helper.streaming.rtsp.transport import RtpTransport
+
+try:  # package import (tests / integration)
+    from .vimar_talk import TalkServer
+except ImportError:  # script import (/config/vimar/serve_rtsp.py)
+    try:
+        from vimar_talk import TalkServer
+    except ImportError:  # pragma: no cover - optional backend
+        TalkServer = None  # type: ignore[assignment]
 
 CREDENTIALS = os.environ.get("CREDENTIALS", "/config/vimar/stream_credentials.json")
 BIND = os.environ.get("RTSP_BIND", "0.0.0.0")
@@ -75,6 +94,10 @@ STREAM_ID = int(os.environ.get("CAMERA_STREAM_ID", "2"))
 AUDIO = os.environ.get("AUDIO", "1").strip().lower() not in {
     "0", "false", "no", "off", ""
 }
+TALK = os.environ.get("TALK", "1").strip().lower() not in {
+    "0", "false", "no", "off", ""
+}
+TALK_PORT = int(os.environ.get("TALK_PORT", "8560"))
 
 _log_lock = threading.Lock()
 
@@ -84,39 +107,70 @@ def log(msg: str) -> None:
         print(f"{time.strftime('%H:%M:%S')} {msg}", flush=True)
 
 
-class OptionalAudioRtspServer(RtspH264Server):
-    """RTSP server that adds the audio track only if the camera sends audio.
+class AlwaysAudioRtspServer(RtspH264Server):
+    """RTSP server with an always-present PCMA 8 kHz mono audio track.
 
     quii-helper's stock server advertises G.711 only after an E3 frame and
-    answers 503 to DESCRIBE until then.  The doorbell is video-only in normal
-    preview, so that would make the stream unplayable.  Here the audio track
-    stays hidden (video-only SDP) until the first valid E3 frame; from then
-    on new viewers get A/V and existing viewers stay video-only.
+    answers 503 to DESCRIBE until then.  This doorbell sends no E3 audio in
+    idle preview (and may only send it during a call), so hiding the track
+    would either break the stream or prevent HA/go2rtc from negotiating audio.
+
+    Advertise PCMA immediately and send silence until an E3 frame arrives.
+    Mu-law and PCM16 frames are transcoded to A-law so the advertised format
+    never changes.  Video-only clients simply ignore the silent track.
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        # CameraRtspStream passes audio=True; keep the track hidden until the
-        # doorbell actually sends an E3 frame.  The parent dataclass has no
-        # __post_init__, so forcing the field here is what takes effect.
-        kwargs["audio"] = False
+        audio = bool(kwargs.get("audio", False))
+        kwargs["audio"] = audio
         super().__init__(*args, **kwargs)
         self.audio_frames = 0
         self.audio_error = None
+        self._audio_requested = audio
+        self.talk_backchannel = TALK
+        if audio:
+            # Advertise the track before the first E3 frame.  A-law (PCMA)
+            # is what the doorbell negotiates for talk and what go2rtc /
+            # WebRTC support natively.
+            self.audio_format = G711Format(4)
+            self.audio_ready.set()
+
+    def start(self):
+        # RtspH264Server.start() calls _reset_media(), which clears the
+        # format/event we set in __init__.
+        super().start()
+        if self._audio_requested:
+            self.audio_format = G711Format(4)
+            self.audio_ready.set()
+        return self
+
+    def _as_alaw(self, frame):
+        """Return an A-law frame, transcoding mu-law/PCM16 if needed."""
+        if frame.sample_rate != 8000 or frame.channels != 1:
+            self.audio_error = (
+                f"unsupported audio format {frame.sample_rate} Hz / "
+                f"{frame.channels} ch"
+            )
+            return None
+        if frame.codec == 4:
+            return frame
+        if frame.codec == 5:
+            pcm = decode_g711(frame.data, 5)
+            return replace(frame, data=encode_g711(pcm, 4), codec=4)
+        if frame.codec == 9:
+            if len(frame.data) % 2:
+                self.audio_error = "odd PCM16 frame length"
+                return None
+            return replace(frame, data=encode_g711(frame.data, 4), codec=4)
+        self.audio_error = f"unsupported audio codec {frame.codec}"
+        return None
 
     def publish_audio(self, frame) -> None:
         if not self._running:
             return
-        try:
-            profile = G711Format.from_frame(frame)
-        except ValueError as exc:
-            self.audio_error = str(exc)
+        frame = self._as_alaw(frame)
+        if frame is None:
             return
-        if self.audio_format is not None and self.audio_format != profile:
-            self.audio_error = "audio format changed"
-            return
-        if not self.audio:
-            self.audio = True
-            log(f"audio track enabled ({profile.encoding}/8000 mono)")
         try:
             super().publish_audio(frame)
         except Exception as exc:  # keep video alive on a bad audio frame
@@ -124,11 +178,193 @@ class OptionalAudioRtspServer(RtspH264Server):
             if self.audio_frames == 0:
                 log(f"audio frame dropped: {self.audio_error}")
             return
+        if self.audio_frames == 0:
+            log("audio: first E3 frame received (PCMA/8000 mono)")
         self.audio_frames += 1
 
 
+class NoWaitRtspClient(RtspClient):
+    """Answer DESCRIBE immediately, with audio if the bridge advertises it.
+
+    The stock client waits up to 5 s for video/SPS/PPS and answers 503 when
+    the doorbell is still opening its stream.  The bridge's front proxy then
+    drops the viewer and the lazy session closes, so every retry races the
+    cold start.  This client returns the SDP immediately; the H.264 decoder
+    parameters arrive in-band with the first IDR, exactly like the previous
+    video-only bridge.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._backchannel = False
+
+    def _handle_request(self, request_text: str) -> None:
+        request = parse_request(request_text)
+        if request is None:
+            super()._handle_request(request_text)
+            return
+        method = request.method.upper()
+
+        if method == "DESCRIBE":
+            body = build_h264_sdp(
+                connect_host=self.server.connect_host,
+                payload_type=self.server.payload_type,
+                audio_format=self.server.audio_format,
+                parameter_sets=self.server.parameter_sets,
+            )
+            if getattr(self.server, "talk_backchannel", False):
+                # go2rtc discovers this send-only track on the main session
+                # and opens a second RTSP session for the microphone.
+                body = body.rstrip("\r\n") + "\r\n"
+                body += (
+                    "m=audio 0 RTP/AVP 8\r\n"
+                    "a=rtpmap:8 PCMA/8000/1\r\n"
+                    "a=control:trackID=2\r\n"
+                    "a=sendonly\r\n"
+                )
+            self._send_response(
+                200,
+                "OK",
+                cseq=request.cseq,
+                headers={
+                    "Content-Type": "application/sdp",
+                    "Content-Base": urlsplit(request.uri)
+                    ._replace(
+                        path=self.server.path.rstrip("/") + "/",
+                        query="",
+                        fragment="",
+                    )
+                    .geturl(),
+                },
+                body=body,
+            )
+            return
+
+        if method == "SETUP":
+            path = urlsplit(request.uri).path.rstrip("/")
+            if path.endswith("trackID=2"):
+                self._backchannel = True
+                self.tracks.setdefault(2, RtpTransport(channel=4))
+                transport = request.headers.get("transport", "")
+                if "RTP/AVP/TCP" in transport.upper():
+                    self._setup_tcp_transport(
+                        request, transport, track_id=2
+                    )
+                else:
+                    self._setup_udp_transport(
+                        request, transport, track_id=2
+                    )
+                return
+
+        if method == "PLAY" and self._backchannel:
+            with self._send_lock:
+                self.playing = True
+                self._send_response(
+                    200,
+                    "OK",
+                    cseq=request.cseq,
+                    headers={"Session": self.server.session_id},
+                )
+            self._read_backchannel()
+            return
+
+        super()._handle_request(request_text)
+
+    @staticmethod
+    def _rtp_payload(packet: bytes) -> bytes:
+        """Strip the RTP header (and CSRC/extension) from one packet."""
+        if len(packet) < 12:
+            return b""
+        offset = 12 + 4 * (packet[0] & 0x0F)
+        if packet[0] & 0x10:
+            if len(packet) < offset + 4:
+                return b""
+            offset += (
+                4
+                + int.from_bytes(packet[offset + 2 : offset + 4], "big")
+                * 4
+            )
+        return packet[offset:]
+
+    def _read_backchannel(self) -> None:
+        """Read interleaved RTP and forward PCMA to the talk server."""
+        try:
+            talk = socket.create_connection(
+                ("127.0.0.1", TALK_PORT), timeout=2
+            )
+        except OSError as exc:
+            log(f"rtsp backchannel: talk server unavailable: {exc}")
+            return
+        log("rtsp backchannel: connected to talk server")
+
+        buffer = bytearray()
+        try:
+            self.sock.settimeout(1.0)
+            while not self._closed and not self.server.stop_event.is_set():
+                try:
+                    chunk = self.sock.recv(4096)
+                except socket.timeout:
+                    continue
+                except OSError:
+                    return
+                if not chunk:
+                    return
+                buffer.extend(chunk)
+                while buffer:
+                    if buffer[0] == 0x24:  # interleaved RTP/RTCP '$'
+                        if len(buffer) < 4:
+                            break
+                        channel = buffer[1]
+                        length = int.from_bytes(buffer[2:4], "big")
+                        if len(buffer) < 4 + length:
+                            break
+                        packet = bytes(buffer[4 : 4 + length])
+                        del buffer[: 4 + length]
+                        track = self.tracks.get(2)
+                        if track is None or channel != track.channel:
+                            # RTCP (channel + 1) or another track: never feed
+                            # it to the talk socket as PCMA.
+                            continue
+                        payload = self._rtp_payload(packet)
+                        if payload:
+                            try:
+                                talk.sendall(payload)
+                            except OSError:
+                                return
+                        continue
+
+                    end = buffer.find(b"\r\n\r\n")
+                    if end < 0:
+                        break
+                    request = bytes(buffer[: end + 4])
+                    del buffer[: end + 4]
+                    if b"TEARDOWN" in request:
+                        return
+                    if request.startswith(b"OPTIONS"):
+                        cseq = b""
+                        for line in request.split(b"\r\n"):
+                            if line.lower().startswith(b"cseq:"):
+                                cseq = line.split(b":", 1)[1].strip()
+                                break
+                        try:
+                            self.sock.sendall(
+                                b"RTSP/1.0 200 OK\r\nCSeq: "
+                                + cseq
+                                + b"\r\n\r\n"
+                            )
+                        except OSError:
+                            return
+        finally:
+            try:
+                talk.close()
+            except OSError:
+                pass
+
+
 # CameraRtspStream instantiates the class from its own module namespace.
-camera_rtsp.RtspH264Server = OptionalAudioRtspServer
+camera_rtsp.RtspH264Server = AlwaysAudioRtspServer
+# RtspH264Server._accept_loop looks up RtspClient in its own module.
+rtsp_server.RtspClient = NoWaitRtspClient
 
 
 class Bridge:
@@ -162,6 +398,7 @@ class Bridge:
         self.client_socks: set[socket.socket] = set()
         self.client_lock = threading.Lock()
         self.shutdown = threading.Event()
+        self.talk_server = None
 
     # -- session management ------------------------------------------------
     def _spawn(self):
@@ -616,6 +853,9 @@ class Bridge:
                 "block_consumers": self.block_consumers,
                 "consumer_error": self.consumer_error,
                 "max_session_s": MAX_SESSION,
+                "talk": self.talk_server.status()
+                if self.talk_server is not None
+                else None,
                 "rtsp": f"rtsp://{BIND}:{PORT}/live",
             }
 
@@ -649,6 +889,8 @@ def main() -> int:
     def _term(*_args) -> None:
         log("SIGTERM: closing")
         bridge.shutdown.set()
+        if bridge.talk_server is not None:
+            bridge.talk_server.stop()
         with bridge.cond:
             stream = bridge.session
         if stream is not None:
@@ -665,6 +907,17 @@ def main() -> int:
 
     signal.signal(signal.SIGTERM, _term)
     signal.signal(signal.SIGINT, _term)
+
+    if TALK:
+        if TalkServer is None:
+            log("talk bridge unavailable (vimar_talk.py not importable)")
+        else:
+            bridge.talk_server = TalkServer()
+            threading.Thread(
+                target=bridge.talk_server.start,
+                name="vimar-talk",
+                daemon=True,
+            ).start()
 
     threading.Thread(target=status_server, args=(bridge,), daemon=True).start()
     threading.Thread(target=bridge.monitor, daemon=True).start()

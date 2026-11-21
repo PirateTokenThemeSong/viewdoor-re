@@ -297,18 +297,26 @@ firmware simply does not put audio in the preview while no call is active.
 The likely place to see it is an **active doorbell call** (visitor pressed the
 button).  A 2026-11-20 test could not produce one remotely.
 
-The deployed bridge is nevertheless ready for it:
+The bridge now advertises the audio direction unconditionally:
 
-* `serve_rtsp(..., audio=True)` with a wrapper (`OptionalAudioRtspServer`) that
-  keeps the audio track **hidden** until a valid `E3` frame arrives.  Without
-  the wrapper, quii-helper answers `503 Service Unavailable` to DESCRIBE until
-  audio exists, which would make the video unplayable on this device.
-* Before audio: normal **video-only** SDP, video works exactly as before.
-* On the first valid `E3` frame: new RTSP clients get an extra
-  `m=audio 0 RTP/AVP 8` (PCMA/G.711, 8 kHz mono) track; existing clients stay
-  video-only.  go2rtc/WebRTC supports PCMA natively.
-* `AUDIO=0` disables the whole path.  `/status` exposes `audio_enabled`,
-  `audio`, `audio_format`, `audio_frames`, `audio_error`.
+* `AlwaysAudioRtspServer` adds `m=audio 0 RTP/AVP 8` (PCMA/G.711, 8 kHz mono)
+  from the first DESCRIBE and answers immediately (the stock quii-helper
+  client waits 5 s for video and answers `503`, which made the lazy session
+  race its own cold start).
+* `E3` A-law frames are forwarded as-is; mu-law (`codec 5`) and PCM16
+  (`codec 9`) are transcoded to A-law so the advertised format never changes.
+* Before the first `E3` frame the track is silent; when the doorbell sends
+  audio (typically during a call), existing viewers hear it without a new
+  DESCRIBE.
+* `AUDIO=0` disables the track.  `/status` exposes `audio_enabled`, `audio`,
+  `audio_format`, `audio_frames`, `audio_error`.
+
+Talk runs in the same process: the RTSP server advertises a `sendonly` PCMA
+track (`trackID=2`).  go2rtc/HA opens a second RTSP session to the bridge,
+sends RTP, and the bridge forwards the PCMA payload to `vimar_talk.py` on
+`127.0.0.1:8560`, which feeds `LanTalkSession`.  No doorbell talk connection is
+opened until the microphone starts.  No extra go2rtc source is needed; go2rtc
+is only HA's WebRTC provider.
 
 Capture tool (stop the bridge first — one stream):
 
@@ -320,6 +328,6 @@ Exit code `2` means "connected, but no E3 audio", i.e. the current video-only
 state.  Run it while someone rings the doorbell / while a call is active.  If
 frames appear it writes a 8 kHz mono PCM WAV (`work/doorbell.wav`).
 
-Two-way audio is **not exposed in Home Assistant** yet.  quii-helper's LAN
-talk transport works (outgoing G.711, selector 65535), but the browser -> RTSP
-backchannel is a separate piece and was not wired into the bridge.
+Two-way audio is wired through HA 2026.11's camera capability + go2rtc
+backchannel.  The talk handshake works, but the real speaker path has not been
+tested on the gate yet; see `homeassistant/README.md`.

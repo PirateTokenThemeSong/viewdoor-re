@@ -3,13 +3,13 @@
     "step": {
       "user": {
         "title": "Vimar VIEW Door",
-        "description": "Collega l'API CGI LAN del citofono e il bridge QVII → RTSP.",
+        "description": "Collega l'API CGI LAN del citofono e il bridge QVII → RTSP. Il bridge su :8556 trasporta anche il backchannel PCMA del parlato; go2rtc è solo il provider WebRTC di Home Assistant.",
         "data": {
           "host": "Host del citofono",
           "port": "Porta CGI",
           "auth_code": "Out-auth-code (64 hex) o codice etichetta",
           "name": "Nome",
-          "stream_url": "URL RTSP dello stream",
+          "stream_url": "URL RTSP (bridge :8556)",
           "two_way_audio": "Dichiara il supporto two-way audio (sperimentale)"
         }
       }
@@ -31,13 +31,13 @@
     "step": {
       "init": {
         "title": "Opzioni Vimar VIEW Door",
-        "description": "Modifica URL del bridge o token senza riaggiungere il dispositivo.",
+        "description": "Modifica URL del bridge o token senza riaggiungere il dispositivo. Il two-way audio usa il backchannel RTSP del bridge.",
         "data": {
           "host": "Host del citofono",
           "port": "Porta CGI",
           "auth_code": "Out-auth-code (64 hex) o codice etichetta",
           "name": "Nome",
-          "stream_url": "URL RTSP dello stream",
+          "stream_url": "URL RTSP (bridge :8556)",
           "two_way_audio": "Dichiara il supporto two-way audio (sperimentale)"
         }
       }

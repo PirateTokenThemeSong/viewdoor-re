@@ -18,6 +18,8 @@ custom_components/vimar_door/
   translations/en.json, it.json
 homeassistant/
   vimar_bridge.py    QVII -> RTSP bridge (external process/container)
+  vimar_talk.py      loopback PCMA -> LanTalkSession talk bridge
+bridge_tests/        offline RTSP/audio/talk tests
 docs/
   PROTOCOL.md, STREAM.md, TEST-DOORS.md
 tools/
@@ -52,9 +54,9 @@ configuration under the camera identifier and handles HLS/WebRTC.
 The entity does not implement a snapshot image; the live stream is the
 primary view. Use the bridge poster for a dashboard placeholder.
 
-## Two-way audio — what is still missing
+## Two-way audio
 
-The HA side is ready:
+The HA side declares the capability:
 
 ```python
 _attr_camera_entity_capabilities = CameraEntityCapabilities(
@@ -65,22 +67,33 @@ _attr_camera_entity_capabilities = CameraEntityCapabilities(
 For the native **Start talking** button HA also requires WebRTC, the Labs
 preview feature, and HTTPS. Those are environment settings.
 
-The **bridge side** still needs a backchannel. Candidate implementations:
+The backend implements both directions:
 
-1. **go2rtc `exec` backchannel** — run a small Python pipe in the go2rtc
-   container that reads PCMA from stdin and forwards it to a TCP talk service
-   in the bridge container (`LanTalkSession`). This avoids writing an RTSP
-   server.
-2. **RTSP backchannel** — add a `sendonly` PCMU/PCMA track to the bridge RTSP
-   server and implement SETUP/PLAY/RTP receive, then feed `LanTalkSession`.
+* **Listen** — `AlwaysAudioRtspServer` advertises PCMA from the first
+  DESCRIBE, so go2rtc/HA can negotiate audio before the doorbell sends its
+  first `E3` frame. `E3` A-law is forwarded; mu-law and PCM16 are transcoded
+  to A-law. No `E3` means a silent track (normal idle preview).
+* **Talk** — the bridge RTSP server advertises a `sendonly` PCMA track
+  (`trackID=2`). go2rtc discovers it on the main session and opens a second
+  RTSP session to the same bridge URL; the bridge strips the RTP header and
+  forwards the PCMA payload to `vimar_talk.py` on `127.0.0.1:8560`. The talk
+  server groups the bytes into 40 ms frames and sends them via
+  `LanTalkSession` (selector 65535).
 
-Either way, the actual talk path must be tested with the doorbell speaker;
-the current handshake works (A-law, `ready`) but simultaneous preview + talk
-audio has not been verified.
+The integration stream URL stays the bridge URL
+`rtsp://127.0.0.1:8556/live`; no extra go2rtc source is required. go2rtc is
+only Home Assistant's WebRTC provider.
+
+**Not verified on hardware yet.** The talk handshake works (A-law, `ready`)
+and the offline tests cover framing/transcoding, but simultaneous preview +
+talk to the real gate speaker still needs a controlled test. Keep
+`two_way_audio` off until then.
 
 ## Testing without the doorbell
 
 * `tests/test_api.py` covers password encoding and the XML envelope.
+* `bridge_tests/` covers the always-on PCMA RTSP track and the loopback talk
+  framing with a fake `LanTalkSession` (run `cd bridge_tests && pytest`).
 * Import checks can be run inside the HA container:
 
   ```bash
