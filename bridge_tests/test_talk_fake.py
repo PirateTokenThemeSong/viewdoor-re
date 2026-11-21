@@ -1,4 +1,4 @@
-"""Offline test for the loopback PCMA -> talk bridge."""
+"""Offline tests for the talk route command and microphone forwarding."""
 
 from __future__ import annotations
 
@@ -6,95 +6,48 @@ import socket
 import threading
 import time
 
-import homeassistant.vimar_talk as talk_module
-from quii_helper.media.frames.cframe_pack import QuiiCFramePack
+from homeassistant import vimar_talk
+from homeassistant.vimar_route import TalkConnection
+from quii_helper.protocols.quii.crypto import aes_cbc_crypt
 
 
-class FakeTalk:
-    """Capture frames instead of opening a doorbell connection."""
-
-    codec = 4
-
-    def __init__(self) -> None:
-        self.frames: list[bytes] = []
-        self.closed = False
-
-    def open(self) -> "FakeTalk":
-        return self
-
-    def send_audio(self, data: bytes) -> None:
-        self.frames.append(data)
-
-    def recv_message(self, timeout: float = 1.0) -> None:
-        time.sleep(min(timeout, 0.05))
-        raise TimeoutError
-
-    def close(self) -> None:
-        self.closed = True
+def test_route_packet_type13_disable() -> None:
+    """The audio route is type 13 with enable=0 on channel 65535."""
+    key = "K" * 32
+    connection = TalkConnection("127.0.0.1", "A" * 64, key)
+    packet = connection.packet(13, 0)
+    header = aes_cbc_crypt(packet[:32], key.encode(), crypto_mode=2, decrypt=True)
+    assert header[0] == 13
+    assert header[11] | (header[12] << 8) == 65535
+    assert header[13] == 0
 
 
-def test_incoming_talk_audio_is_forwarded() -> None:
-    """Visitor audio on the talk socket reaches the RTSP audio sink."""
+def test_talk_server_forwards_microphone_pcma() -> None:
+    """The RTSP backchannel PCMA reaches the shared talk connection."""
 
-    class IncomingTalk:
-        codec = 4
-
+    class FakeRoute:
         def __init__(self) -> None:
-            self.sent = False
+            self.alaw = bytearray()
 
-        def recv_message(self, timeout: float = 1.0) -> dict:
-            if not self.sent:
-                self.sent = True
-                return {"is_media": True, "payload": bytes([0xD5]) * 320}
-            time.sleep(min(timeout, 0.05))
-            raise TimeoutError
+        def send_alaw(self, data: bytes) -> None:
+            self.alaw.extend(data)
 
-    server = talk_module.TalkServer()
-    stop = threading.Event()
-    frames: list = []
+    route = FakeRoute()
+    server = vimar_talk.TalkServer()
+    server._route = route  # type: ignore[assignment]
+    server._route_ready.set()
 
-    def sink(frame) -> None:
-        frames.append(frame)
-        stop.set()
-
-    server.incoming_sink = sink
-    server._read_talk(IncomingTalk(), stop, QuiiCFramePack(), 4)
-    assert len(frames) == 1
-    assert frames[0].codec == 4
-    assert frames[0].data == bytes([0xD5]) * 320
-    assert server.incoming_frames == 1
-
-
-def main() -> None:
-    fake = FakeTalk()
-    talk_module.LanTalkSession = lambda _cfg: fake
-    talk_module._config = lambda: None
-    talk_module.TALK_PORT = 0
-
-    server = talk_module.TalkServer()
-    threading.Thread(target=server.start, daemon=True).start()
-    deadline = time.monotonic() + 3
-    while not server.port and time.monotonic() < deadline:
-        time.sleep(0.05)
-    assert server.port
-
-    client = socket.create_connection(("127.0.0.1", server.port))
-    client.sendall(b"\xd5" * 640)
-    time.sleep(1.0)
-    client.close()
-    time.sleep(0.3)
-    server.stop()
-
-    assert len(fake.frames) == 2
-    assert all(len(frame) == 320 for frame in fake.frames)
-    assert all(frame == b"\xd5" * 320 for frame in fake.frames)
-    assert fake.closed
-
-
-def test_talk_loopback() -> None:
-    main()
+    left, right = socket.socketpair()
+    worker = threading.Thread(target=server._handle_client, args=(left,))
+    worker.start()
+    right.sendall(b"\xd5" * 320)
+    time.sleep(0.2)
+    right.close()
+    worker.join(timeout=2)
+    assert bytes(route.alaw) == b"\xd5" * 320
+    assert server._mic_active is False
 
 
 if __name__ == "__main__":
-    test_talk_loopback()
-    test_incoming_talk_audio_is_forwarded()
+    test_route_packet_type13_disable()
+    test_talk_server_forwards_microphone_pcma()

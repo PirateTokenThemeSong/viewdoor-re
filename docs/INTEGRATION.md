@@ -70,37 +70,31 @@ preview feature, and HTTPS. Those are environment settings.
 
 The backend implements both directions:
 
-* **Listen** — `AlwaysAudioRtspServer` advertises PCMA from the first
-  DESCRIBE, so go2rtc/HA can negotiate audio before the doorbell sends its
-  first `E3` frame. `E3` A-law is forwarded; mu-law and PCM16 are transcoded
-  to A-law. No `E3` means a silent track (normal idle preview).
-* **Talk** — the bridge RTSP server advertises a `sendonly` PCMA track
-  (`trackID=2`). go2rtc discovers it on the main session and opens a second
-  RTSP session to the same bridge URL; the bridge strips the RTP header and
-  forwards the PCMA payload to `vimar_talk.py` on `127.0.0.1:8560`. The talk
-  server groups the bytes into 40 ms frames and sends them via
-  `LanTalkSession` (selector 65535).
-* **Listen while talking** — the app's `QVTalkListen` receives the visitor's
-  voice on the same talk channel. The talk reader forwards CPacket E3,
-  compact `00 00 01 F0` and raw G.711 payloads to the RTSP audio track; the
-  browser hears the visitor while the talk session is active. A silent
-  backchannel with no visitor/call produced zero incoming frames in testing.
+* **Listen** — the bridge opens a talk channel and sends `type 13 disable`
+  (`route_receive_to_video`). The doorbell then sends the visitor's voice as
+  **E3 on the video session**; `AlwaysAudioRtspServer` publishes those E3
+  frames as PCMA/8 kHz (A-law; mu-law/PCM16 are transcoded). Verified live:
+  508 E3 frames in 20 s and a 10 s RTSP recording with signal.
+* **Talk / microphone** — the RTSP server advertises a `sendonly` PCMA track
+  (`trackID=2`); go2rtc opens the second session and the talk server forwards
+  the PCMA as 512-sample A-law blocks on the routed talk channel. The
+  microphone-to-speaker path still needs an audible test.
 
 The integration stream URL stays the bridge URL
 `rtsp://127.0.0.1:8556/live`; no extra go2rtc source is required. go2rtc is
 only Home Assistant's WebRTC provider.
 
-**Partially verified on hardware.** The RTSP audio tracks and the backchannel
-were tested against the real doorbell: video + two PCMA tracks, and an RTSP
-client SETUP of `trackID=2` opened a talk session (A-law) while preview stayed
-alive. Actual microphone audio to the gate speaker still needs a controlled
-test. Keep `two_way_audio` off until then.
+**Listening verified live.** With the routed talk session, the doorbell sent
+508 E3 frames in 20 s and the RTSP audio recording contained signal (peak
+3008, RMS 183.5). The microphone-to-gate-speaker path uses the same routed
+channel and the RTSP backchannel, but an audible speaker test remains. Keep
+`two_way_audio` off until you test the gate speaker.
 
 ## Testing without the doorbell
 
 * `tests/test_api.py` covers password encoding and the XML envelope.
-* `bridge_tests/` covers the always-on PCMA RTSP track and the loopback talk
-  framing with a fake `LanTalkSession` (run `cd bridge_tests && pytest`).
+* `bridge_tests/` covers the always-on PCMA RTSP track, the route packet and
+  the microphone forwarding (run `cd bridge_tests && pytest`).
 * Import checks can be run inside the HA container:
 
   ```bash

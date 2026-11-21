@@ -458,9 +458,9 @@ class Bridge:
             reconnect=False,
         )
         if self.talk_server is not None:
-            # Visitor audio arriving on the talk channel is published on the
-            # same RTSP audio track the browser is already listening to.
-            self.talk_server.incoming_sink = stream.server.publish_audio
+            # Open the talk channel and route visitor audio to the video E3
+            # stream, which AlwaysAudioRtspServer publishes on track 1.
+            self.talk_server.start_route(stream.server.video_ready)
         log(
             f"doorbell session opened on {DEVICE_HOST}:{DEVICE_PORT} "
             f"(audio {'on' if AUDIO else 'off'})"
@@ -537,6 +537,8 @@ class Bridge:
             self.credentials_path = str(result["path"])
             if talk_module is not None:
                 talk_module.CREDENTIALS = self.credentials_path
+            if self.talk_server is not None:
+                self.talk_server.stop_route()
             log(
                 "stream key refresh: changed=%s key_len=%s path=%s"
                 % (
@@ -561,7 +563,7 @@ class Bridge:
             stream, self.session = self.session, None
         log(f"closing doorbell session ({reason})")
         if self.talk_server is not None:
-            self.talk_server.incoming_sink = None
+            self.talk_server.stop_route()
         try:
             stream.close()
         except Exception as exc:

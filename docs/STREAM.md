@@ -351,11 +351,13 @@ sends RTP, and the bridge forwards the PCMA payload to `vimar_talk.py` on
 opened until the microphone starts.  No extra go2rtc source is needed; go2rtc
 is only HA's WebRTC provider.
 
-The doorbell sends the visitor's voice on the **talk channel** (the app's
-`QVTalkListen`), not on the idle preview (`E3` is zero there).  The talk
-reader forwards CPacket E3, compact `00 00 01 F0` and raw G.711 frames to the
-RTSP audio track, so the browser can hear the visitor while talking.
-`/status` reports `talk.incoming_frames` and `talk.incoming_sink`.
+The doorbell sends the visitor's voice on the **video session** only after a
+talk channel is open and `type 13 disable` (`route_receive_to_video`) has been
+sent.  That is the app's `QVTalkListen` path.  The bridge's
+`AlwaysAudioRtspServer` publishes the resulting `E3` G.711 frames on the RTSP
+audio track.  Verified live: 508 E3 frames in 20 s, and a 10 s RTSP recording
+with signal (peak 3008, RMS 183.5).  The talk channel also accepts microphone
+PCMA as 512-sample A-law blocks.
 
 Capture tool (stop the bridge first — one stream):
 

@@ -1,4 +1,4 @@
-<img src="assets/icon.svg" width="64" height="64" alt="">
+<img src="assets/icon.png" width="64" height="64" alt="">
 
 # Vimar VIEW Door — Home Assistant integration
 
@@ -97,12 +97,14 @@ Home Assistant 2026.11 can show a **Start talking** button when:
 
 This integration provides step 1; the bridge now provides both audio paths:
 
-* **Listen** — the RTSP server always advertises a PCMA 8 kHz track and
-  forwards `E3` frames when the doorbell sends them (A-law; mu-law/PCM16 are
-  transcoded). In idle preview the track is silent.
-* **Talk** — `homeassistant/vimar_talk.py` listens on `127.0.0.1:8560`,
-  buffers the PCMA from the RTSP backchannel into 40 ms frames and sends them over
-  `quii-helper`’s `LanTalkSession` → doorbell speaker.
+* **Listen** — the bridge opens a talk channel and sends `type 13 disable`
+  (`route_receive_to_video`). The doorbell then routes the visitor's voice to
+  the **video session as E3**; `AlwaysAudioRtspServer` publishes it as
+  PCMA/8 kHz on the RTSP audio track. Verified live: 508 E3 frames in 20 s
+  and a 10 s recording with signal.
+* **Talk** — `vimar_route.py` sends 512-sample A-law blocks on the same
+  routed talk channel. The RTSP `sendonly` track receives the browser
+  microphone PCMA and forwards it here.
 
 Wiring:
 
@@ -118,11 +120,10 @@ The **Start talking** button appears in the camera entity’s more-info dialog;
 the existing `custom:webrtc-camera` card receives audio but does not send the
 microphone.
 
-The `two_way_audio` option is **off by default** and still experimental: the
-audio track and the RTSP backchannel were tested with the real doorbell
-(video + two PCMA tracks, talk session opens while preview stays alive), but
-actual microphone audio to the gate speaker has not been verified yet. Keep it
-off until you can safely test the speaker.
+The `two_way_audio` option is **off by default** and still experimental.
+Visitor audio is verified live. The microphone → gate speaker path uses the
+same routed talk channel and the RTSP backchannel, but an audible speaker test
+is still required. Keep it off until you test the gate speaker.
 
 ## Bridge
 
