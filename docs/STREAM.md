@@ -318,9 +318,11 @@ healthy video) instead of retrying every 3 s.
 
 **The doorbell does not send audio on an idle LAN preview.**  A raw 60-second
 QVII capture on channel 1, streams 1 and 2, contains only `E0`/`E1` video
-frames: **zero `E3` audio frames**.  The same result holds during a talk
-handshake (codec 4 / A-law negotiated, `ready` ACK received, zero media on
-either socket).  `get.audio.*` CGI commands return `-1` on this firmware.
+frames: **zero `E3` audio frames**.  The same result holds for a talk
+handshake before the routing command (codec 4 / A-law negotiated, `ready` ACK
+received, zero media on either socket).  After `type 13 disable`
+(`route_receive_to_video`) the device sends the visitor's audio as E3 on the
+video session.  `get.audio.*` CGI commands return `-1` on this firmware.
 
 The APK confirms where audio *should* be: `liblive_player.so` decodes `E3`
 G.711 frames from the same QVII stream, and `audioToggleEx` only calls
