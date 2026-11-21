@@ -80,6 +80,11 @@ The backend implements both directions:
   forwards the PCMA payload to `vimar_talk.py` on `127.0.0.1:8560`. The talk
   server groups the bytes into 40 ms frames and sends them via
   `LanTalkSession` (selector 65535).
+* **Listen while talking** — the app's `QVTalkListen` receives the visitor's
+  voice on the same talk channel. The talk reader forwards CPacket E3,
+  compact `00 00 01 F0` and raw G.711 payloads to the RTSP audio track; the
+  browser hears the visitor while the talk session is active. A silent
+  backchannel with no visitor/call produced zero incoming frames in testing.
 
 The integration stream URL stays the bridge URL
 `rtsp://127.0.0.1:8556/live`; no extra go2rtc source is required. go2rtc is

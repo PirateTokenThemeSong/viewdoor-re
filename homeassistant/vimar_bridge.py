@@ -149,6 +149,7 @@ class AlwaysAudioRtspServer(RtspH264Server):
         self.audio_frames = 0
         self.audio_error = None
         self._audio_requested = audio
+        self._audio_publish_lock = threading.Lock()
         self.talk_backchannel = TALK
         if audio:
             # Advertise the track before the first E3 frame.  A-law (PCMA)
@@ -188,6 +189,11 @@ class AlwaysAudioRtspServer(RtspH264Server):
         return None
 
     def publish_audio(self, frame) -> None:
+        # Preview E3 and the talk-channel reader can publish concurrently.
+        with self._audio_publish_lock:
+            self._publish_audio(frame)
+
+    def _publish_audio(self, frame) -> None:
         if not self._running:
             return
         frame = self._as_alaw(frame)
@@ -451,6 +457,10 @@ class Bridge:
             audio=AUDIO,
             reconnect=False,
         )
+        if self.talk_server is not None:
+            # Visitor audio arriving on the talk channel is published on the
+            # same RTSP audio track the browser is already listening to.
+            self.talk_server.incoming_sink = stream.server.publish_audio
         log(
             f"doorbell session opened on {DEVICE_HOST}:{DEVICE_PORT} "
             f"(audio {'on' if AUDIO else 'off'})"
@@ -550,6 +560,8 @@ class Bridge:
             self.last_reason = reason
             stream, self.session = self.session, None
         log(f"closing doorbell session ({reason})")
+        if self.talk_server is not None:
+            self.talk_server.incoming_sink = None
         try:
             stream.close()
         except Exception as exc:

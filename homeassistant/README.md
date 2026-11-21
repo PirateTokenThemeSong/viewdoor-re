@@ -19,8 +19,12 @@ go2rtc / HA                      bridge container
   (`trackID=2`). When go2rtc/HA starts the microphone it opens a second RTSP
   session, sends RTP to the bridge, and the bridge forwards the payload to
   `vimar_talk.py` on loopback. The talk server groups the bytes into 40 ms
-  frames and sends them on `LanTalkSession`. It does not open a doorbell
-  connection until a client connects.
+  frames and sends them on `LanTalkSession`.
+* **Listen while talking** — the doorbell sends the visitor's voice on the
+  talk channel (`QVTalkListen`, the app's behaviour). The talk reader parses
+  CPacket E3, compact `00 00 01 F0` and raw G.711 payloads and publishes them
+  on the bridge's RTSP audio track. `/status` exposes
+  `talk.incoming_frames` and `talk.incoming_sink`.
 
 ## Run
 
