@@ -19,7 +19,10 @@ protocol. User-facing installation and usage instructions live in the
 
 ```text
 custom_components/vimar_door/   Home Assistant integration
-homeassistant/                  QVII -> RTSP bridge and helpers
+  bootstrap.py                  Vimar SSO and device-token bootstrap
+  bridge_process.py             managed bridge subprocess
+  bridge/                       vendored QVII -> RTSP bridge modules
+homeassistant/                  source/reference bridge modules
 bridge_tests/                   Offline bridge/audio/talk tests
 tests/                          HA integration tests
 tools/                          Discovery, probes and RE helpers

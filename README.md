@@ -6,9 +6,11 @@
 
 <p align="center">Your doorbell, in Home Assistant.</p>
 
-A local-first Home Assistant integration for Vimar VIEW Door / Qualvision QVII
+A one-step Home Assistant integration for Vimar VIEW Door / Qualvision QVII
 doorbells: live video, gate relays, optional two-way audio and doorbell-ring
-automations, with no cloud dependency for watching or opening.
+automations. The integration signs in with your Vimar account, creates the
+local credentials and runs its bridge inside the Home Assistant container —
+no separate bridge container or manual auth-code setup.
 
 ## What it does
 
@@ -19,15 +21,15 @@ automations, with no cloud dependency for watching or opening.
   the bridge and browser support it.
 - **Doorbell rings** — start any automation when someone presses the button:
   notifications, lights, TTS, snapshots, routines.
-- **Automatic recovery** — the bridge refreshes a rotated stream key by itself
-  when the cloud account is configured.
+- **Automatic recovery** — the bridge refreshes a rotated stream key by itself.
 
 ## Get started
 
-1. Start the [RTSP bridge](docs/bridge.md) on the Home Assistant host or
-   another machine on the same LAN.
-2. Install the integration and add the doorbell — see
+1. Install the custom integration from this repository or HACS — see
    [Installation](docs/installation.md).
+2. Add **Vimar VIEW Door** and enter your Vimar email, password and the
+   doorbell IP. The integration discovers the device and starts its bridge
+   automatically.
 3. Open the camera, test the relays and optionally enable
    [two-way audio](docs/usage.md#two-way-audio).
 4. Set up [doorbell-ring automations](docs/ring.md) if you want Home Assistant
@@ -35,13 +37,12 @@ automations, with no cloud dependency for watching or opening.
 
 ## Documentation
 
-- [Installation](docs/installation.md) — integration, bridge and credentials
+- [Installation](docs/installation.md) — one-step integration setup
 - [Using the integration](docs/usage.md) — camera, relays, audio and updates
-- [RTSP bridge](docs/bridge.md) — run the bridge and configure the stream
-- [Doorbell rings](docs/ring.md) — webhook and automation examples
+- [RTSP bridge](docs/bridge.md) — how the managed bridge works; advanced external setup
+- [Doorbell rings](docs/ring.md) — `vimar_door_ring` event and automation examples
 - [Troubleshooting](docs/troubleshooting.md) — common problems and diagnostics
-- [Internal docs](docs/internal/README.md) — protocol, architecture and
-  developer notes
+- [Internal docs](docs/internal/README.md) — protocol, architecture and developer notes
 
 ## Status
 

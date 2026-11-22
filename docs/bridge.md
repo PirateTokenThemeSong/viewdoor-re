@@ -1,8 +1,12 @@
 # RTSP bridge
 
-The RTSP bridge is the service that connects the doorbell to Home Assistant.
-It opens a QVII session to the doorbell and publishes the video, visitor
-audio and microphone backchannel as an RTSP stream.
+The bridge connects the doorbell to Home Assistant. It opens a QVII session to
+the doorbell and publishes the video, visitor audio and microphone backchannel
+as an RTSP stream.
+
+In normal installations the integration starts and manages the bridge
+internally; you do not need this page or a separate container. The manual
+deployment below is for advanced users and legacy external-bridge setups.
 
 The integration does not talk QVII directly. It only needs the bridge's RTSP
 URL.
@@ -107,9 +111,10 @@ option **Two-way audio** is enabled and the browser has microphone permission.
 Read [Using the integration](usage.md#two-way-audio) before enabling the
 microphone; the speaker is a physical output at the gate.
 
-## Ring events
+## Ring events (external bridge only)
 
-Set `RING_WATCH: "1"` and a webhook URL to receive doorbell rings:
+A managed bridge fires `vimar_door_ring` automatically. For a legacy external
+bridge, set `RING_WATCH: "1"` and a webhook URL to receive doorbell rings:
 
 ```yaml
       RING_WATCH: "1"

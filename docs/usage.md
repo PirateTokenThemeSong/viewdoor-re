@@ -1,7 +1,8 @@
 # Using the integration
 
-Once the integration and bridge are installed, the doorbell appears as a
-normal Home Assistant device.
+Once the integration is installed, the doorbell appears as a normal Home
+Assistant device. The one-step setup starts its bridge automatically; there
+is no separate bridge container to manage.
 
 ## Entities
 
@@ -38,7 +39,8 @@ camera_image: camera.cancelletto
 
 The doorbell allows one video stream at a time. If the video is open in the
 Vimar app or a second dashboard, Home Assistant may wait or show a stopped
-stream until the other viewer lets go. The bridge handles this automatically.
+stream until the other viewer lets go. The managed bridge handles this
+automatically.
 
 ## Gate relays
 
@@ -80,10 +82,10 @@ viewer. This is a doorbell limitation, not a dashboard bug.
 
 ## Doorbell rings
 
-The camera stream itself does not carry the outdoor button press. The bridge
-can read the same cloud call journal used by the Vimar app and send a webhook
-to Home Assistant. See [Doorbell ring](ring.md) for setup and automation
-examples.
+The camera stream itself does not carry the outdoor button press. The managed
+bridge reads the same cloud call journal used by the Vimar app and fires the
+Home Assistant event `vimar_door_ring`. See [Doorbell ring](ring.md) for the
+event payload and automation examples.
 
 A ring automation can do anything Home Assistant can do: send a notification,
 turn on lights, play a TTS message, save a camera snapshot or start a script.
@@ -92,9 +94,9 @@ gate.
 
 ## Automatic stream-key recovery
 
-The doorbell's stream key can rotate. When a cloud account file is present,
-the bridge detects a session that opens but produces no video, fetches a fresh
-key and retries. This normally requires no action from you.
+The doorbell's stream key can rotate. The managed bridge detects a session
+that opens but produces no video, fetches a fresh key and retries. This
+normally requires no action from you.
 
 If video stops after a re-pairing, see
 [Troubleshooting](troubleshooting.md#video-stops-working).
@@ -106,11 +108,11 @@ with the new version and restart Home Assistant. Your config entry and
 credentials are preserved.
 
 To remove the integration, delete the config entry under **Settings → Devices
-& services**, then remove the folder. Stop the bridge separately if you no
-longer need it.
+& services**; the managed bridge stops automatically. Then remove the folder
+if you want to uninstall it completely.
 
 ## Safety
 
 - The relays operate a real gate or door. Test them only when it is safe.
 - The doorbell is a public intercom; do not leave the microphone open.
-- Keep auth codes, cloud account files and webhook URLs private.
+- Keep auth codes, cloud account files and device keys private.

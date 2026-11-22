@@ -1,8 +1,8 @@
 # Installation
 
-This guide installs the Home Assistant integration and connects it to the
-RTSP bridge. If the bridge is already running, skip to
-[Install the integration](#install-the-integration).
+The integration is designed for a one-step setup: install it, add the
+doorbell with your Vimar account and IP, and let it create the local
+credentials and bridge.
 
 ## Before you start
 
@@ -10,92 +10,74 @@ You need:
 
 - Home Assistant **2026.11** or newer.
 - A Vimar VIEW Door / QVII doorbell on the LAN.
-- The doorbell's **authentication code** (out-auth-code, or the label code
-  printed near the QR sticker).
-- A host for the RTSP bridge — the Home Assistant host itself is fine.
-- Optional for ring automations: a Vimar app account. See
-  [Doorbell ring](ring.md).
+- The **Vimar app account** used for this doorbell (email and password).
+- The doorbell's LAN **IP address**.
+- No separate bridge container: the integration runs the bridge as a managed
+  process inside the Home Assistant container.
 
-The doorbell accepts only one QVII video stream at a time. The bridge manages
-that limit; do not point another integration or a second bridge at the same
-doorbell.
-
-## Install the RTSP bridge
-
-The bridge is the component that speaks to the doorbell and publishes an RTSP
-stream. Follow the [RTSP bridge guide](bridge.md) to start it and confirm that
-this address works from Home Assistant:
-
-```text
-rtsp://<bridge-host>:8556/live
-```
-
-If the bridge runs on the Home Assistant host, the usual address is
-`rtsp://127.0.0.1:8556/live`.
+The doorbell accepts only one QVII video stream at a time.
 
 ## Install the integration
+
+### HACS
+
+Add this repository as a custom **Integration** repository in HACS, install
+the latest release and restart Home Assistant.
 
 ### Manual installation
 
 1. Copy the `custom_components/vimar_door` folder from this repository into
    your Home Assistant `config/custom_components/` directory.
-2. If you previously used the old YAML package, remove it first so the
-   `button.cancelletto` entity is not created twice.
-3. Restart Home Assistant.
-
-### HACS
-
-Add this repository as a custom **Integration** repository in HACS and install
-the latest release. If HACS cannot install it, use the manual installation
-above.
+2. Remove any old `vimar_door` folder or legacy YAML package first.
+3. Restart Home Assistant. Home Assistant installs the integration
+   requirements (`quii-helper`) automatically.
 
 ## Add the doorbell
 
 1. Open **Settings → Devices & services**.
 2. Choose **Add integration** and search for **Vimar VIEW Door**.
-3. Fill in the form.
+3. Enter:
 
-| Field | Example | Notes |
-|-------|---------|-------|
-| Host | `192.168.1.5` | Doorbell IP address or hostname on the LAN |
-| Port | `80` | Local `/tdkcgi` HTTP port |
-| Auth code | your doorbell code | 64-character out-auth-code, or the label code |
-| Name | `Cancelletto` | Name used for the device and entities |
-| RTSP stream URL | `rtsp://127.0.0.1:8556/live` | The bridge's RTSP output |
-| Two-way audio | off | Turn on only after reading [Using the integration](usage.md#two-way-audio) |
+   | Field | Notes |
+   |-------|-------|
+   | Vimar email | The account used in the Vimar app |
+   | Vimar password | The same account password |
+   | Doorbell IP | Its LAN address, for example `192.168.1.5` |
+   | Name | Optional entity name; defaults to `Cancelletto` |
+   | Two-way audio | Optional; see the requirements below |
 
-The auth code is stored in the Home Assistant config entry. Do not add it to
-`configuration.yaml` or commit it to a public repository.
+The integration then:
 
-After saving, Home Assistant creates:
+- signs in to the Vimar SSO;
+- lists the cloud device and selects it;
+- fetches the out-auth-code and stream key;
+- writes private credentials under `/config/vimar_door/`;
+- starts the QVII → RTSP bridge inside Home Assistant;
+- creates the camera and relay entities.
 
-- a camera entity with the live video;
-- one button per gate relay.
+No auth code, stream key, RTSP URL or separate bridge installation is needed.
 
-The entity IDs depend on the name you choose. For the default name
-`Cancelletto`, they are normally `camera.cancelletto`,
-`button.cancelletto` and `button.cancelletto_relay_1`.
+If the account contains more than one doorbell, automatic selection is not
+supported yet; configure the doorbell manually or use an account with one
+doorbell.
 
-## Enable optional two-way audio
+## Two-way audio
 
-Two-way audio needs all of the following:
+Two-way audio is optional and needs all of:
 
-1. the bridge running with audio and talk enabled (the defaults);
-2. the integration option **Two-way audio** enabled;
-3. Home Assistant opened over **HTTPS**;
-4. **Settings → System → Labs → Two-way audio** enabled.
+- the integration option **Two-way audio** enabled;
+- Home Assistant opened over **HTTPS**;
+- **Settings → System → Labs → Two-way audio** enabled;
+- a compatible browser and the bridge's audio backchannel.
 
-Then open the camera's more-info dialog and press **Start talking**. The full
-walkthrough is in [Using the integration](usage.md#two-way-audio).
+The control appears in the camera's **more-info** dialog as **Start talking**.
+See [Using the integration](usage.md#two-way-audio).
 
-## Set up ring automations
+## Existing external bridge
 
-Doorbell rings are read from the Vimar cloud call journal by the bridge and
-delivered to Home Assistant through a webhook. This is optional for watching
-the camera and using the relays.
-
-See [Doorbell ring](ring.md) for the account requirement, bridge setting and
-an automation example.
+Previous versions used a separately deployed bridge. Those entries continue
+to work. New installations use the managed bridge by default. The advanced
+external deployment is described in [RTSP bridge](bridge.md).
 
 ## Next steps
 

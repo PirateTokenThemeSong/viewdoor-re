@@ -16,15 +16,15 @@ day to day, and fix common problems.
 
 ## What the system is made of
 
-There are two parts:
+The integration and its bridge are managed together:
 
 1. **The Home Assistant integration** (`vimar_door`) creates the camera,
    buttons and optional audio capability.
-2. **The RTSP bridge** is a small service that talks to the doorbell and
-   exposes its video and audio as an RTSP stream.
+2. **The managed bridge** runs inside the Home Assistant container and talks
+   to the doorbell. The one-step setup starts and supervises it.
 
-Home Assistant does not need to run the bridge itself; it only needs to be
-able to reach the bridge's RTSP address.
+An advanced/legacy deployment can still use a separate RTSP bridge; see
+[RTSP bridge](bridge.md).
 
 ## Supported hardware
 

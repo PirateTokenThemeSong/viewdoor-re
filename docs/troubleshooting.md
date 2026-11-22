@@ -26,11 +26,9 @@ Useful fields:
 | `ring.ring_count` | New calls delivered to Home Assistant |
 | `ring.last_webhook_ok` | Whether the last webhook delivery succeeded |
 
-Bridge logs are available from the container or service manager, for example:
-
-```bash
-docker logs --tail 100 vimar-stream
-```
+For a managed bridge, the bridge output is written to the Home Assistant log
+with the `Vimar bridge:` prefix. For a legacy external bridge, read its
+container/service logs.
 
 ## Camera does not appear
 
@@ -110,20 +108,16 @@ Speaker audio is a real public output. Keep the volume conservative.
 
 ## Ring events do not arrive
 
-1. Check `/status`:
+1. Check the bridge status in the integration diagnostics or `/status`:
    - `ring.enabled` should be true.
    - `ring.ok` should be true.
    - `ring.baseline_ready` should be true after the first successful read.
-   - `ring.webhook_configured` should be true.
 2. If `ring.ok` is false, the cloud account is missing or expired. The
    `ring.last_error` value identifies the stage. A `cloud-login-...` error
    means the Vimar cloud login must be renewed.
 3. If `ring.ring_count` increases but the automation does not run, check the
-   automation is enabled and its webhook ID matches the bridge URL.
-4. If `last_webhook_ok` is false, the bridge cannot reach Home Assistant. From
-   the bridge host, test the webhook URL. `local_only: true` rejects a webhook
-   sent from another machine.
-5. Existing calls are baselined when the bridge starts. Wait for a **new**
+   automation trigger is exactly `vimar_door_ring` and is enabled.
+4. Existing calls are baselined when the bridge starts. Wait for a **new**
    call after the bridge has completed its first successful read.
 
 Ring detection is cloud-based on this model; there is no local button event in
@@ -137,11 +131,13 @@ The cloud account file is separate from the doorbell auth code. It is used for:
 - doorbell ring events.
 
 If the cloud login expires, both features stop while the camera and relays
-continue to work. Renew the `cloud-account.json` from the Vimar app login used
-for this doorbell, keep the file private, and restart the bridge if it does
-not pick up the new file automatically.
+continue to work. Remove and re-add the integration with the Vimar account to
+regenerate the private files under `/config/vimar_door/`; do not edit them by
+hand. If you use a legacy external bridge, replace its `cloud-account.json`
+and restart it.
 
-Do not put the account file, passwords or webhook IDs in a public issue.
+Do not put account files, passwords, device keys or webhook IDs in a public
+issue.
 
 ## Integration will not load
 
