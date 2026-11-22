@@ -28,7 +28,7 @@ Examples
   # try to locate the RTSP stream
   python viewdoor.py rtsp --host 192.168.1.50 --code 123456
 
-Auth model (see docs/PROTOCOL.md):
+Auth model (see docs/internal/PROTOCOL.md):
   * LAN/device auth uses  username "adminapp2", password = sha256(auth_code)
     where auth_code is the device verification code (label / set during pairing).
   * The door-open password ("unlock password") is sent sha256-hashed on devices

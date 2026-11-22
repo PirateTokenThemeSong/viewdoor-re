@@ -48,7 +48,7 @@ or mu-law, 8 kHz mono; codec ids `4`/`5`).  The APK decodes it through
 On this IDS9457W (`V401R001B002`) an idle LAN preview contains **no `E3`
 frames at all** (0 in a 60 s capture, streams 1 and 2, channel 1; talk
 handshake negotiated A-law and returned `ready` but no media).  See
-`docs/STREAM.md` §8 for the bridge's auto-detect behavior and
+`STREAM.md` §8 for the bridge's auto-detect behavior and
 `tools/audio_probe.py`.
 
 ---

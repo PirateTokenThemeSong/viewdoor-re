@@ -1,3 +1,7 @@
+> Internal historical test procedure. It can fire physical relays; do not
+> use it on an installation you do not control. User documentation is in
+> [docs/README.md](../README.md).
+
 # Test the two door relays (tomorrow)
 
 Everything below is ready; **nothing has been fired yet**.

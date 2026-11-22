@@ -1,4 +1,7 @@
-# Vimar VIEW Door backend
+# Vimar VIEW Door bridge — internal reference
+
+> Internal technical reference. The user-facing bridge deployment guide is
+> [docs/bridge.md](../bridge.md).
 
 `vimar_bridge.py` is the QVII → RTSP bridge. It now also starts the loopback
 PCMA → QVII talk bridge (`vimar_talk.py`), so one process provides both
@@ -102,7 +105,7 @@ door or read media.  If the cloud login fails, `/status` reports
 `cloud-account.json` is required (same account as the app).  The watcher does
 not invent a local event when the account is unavailable.
 
-See [the HA integration notes](../docs/INTEGRATION.md#doorbell-ring) for the
+See [the integration notes](INTEGRATION.md#doorbell-ring) for the
 webhook automation example.
 
 ## If video stops but the app works

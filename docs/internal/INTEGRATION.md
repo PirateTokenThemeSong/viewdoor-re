@@ -1,4 +1,8 @@
-# Home Assistant integration — notes
+# Home Assistant integration — internal notes
+
+> Internal reference. User installation and usage are in
+> [Installation](../installation.md), [Usage](../usage.md) and
+> [Doorbell ring](../ring.md).
 
 Branch `ha-integration` packages the HA-facing part of the project as a
 HACS-style custom integration.
@@ -21,8 +25,8 @@ homeassistant/
   vimar_talk.py      loopback PCMA -> LanTalkSession talk bridge
   vimar_cloud.py     automatic rotated stream-key refresh
 bridge_tests/        offline RTSP/audio/talk tests
-docs/
-  PROTOCOL.md, STREAM.md, TEST-DOORS.md
+docs/internal/
+  PROTOCOL.md, STREAM.md, TEST-DOORS.md, bridge.md
 tools/
   offline probes and reverse-engineering helpers
 ```

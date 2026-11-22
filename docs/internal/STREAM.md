@@ -373,4 +373,4 @@ frames appear it writes a 8 kHz mono PCM WAV (`work/doorbell.wav`).
 
 Two-way audio is wired through HA 2026.11's camera capability + go2rtc
 backchannel.  The talk handshake works, but the real speaker path has not been
-tested on the gate yet; see `homeassistant/README.md`.
+tested on the gate yet; see [bridge.md](bridge.md).
