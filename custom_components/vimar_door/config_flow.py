@@ -21,6 +21,7 @@ from .api import VimarClient, VimarError
 from .bootstrap import BootstrapError, BootstrapResult, bootstrap, new_client_id
 from .const import (
     BRIDGE_MODE_EMBEDDED,
+    BRIDGE_MODE_EXTERNAL,
     CONF_AUTH_CODE,
     CONF_BRIDGE_MODE,
     CONF_EMAIL,
@@ -28,12 +29,17 @@ from .const import (
     CONF_NAME,
     CONF_PASSWORD,
     CONF_PORT,
+    CONF_STREAM_PORT,
     CONF_STREAM_URL,
     CONF_TWO_WAY,
     DEFAULT_PORT,
+    DEFAULT_RTSP_PORT,
     DEFAULT_STREAM_URL,
     DOMAIN,
+    STREAM_PORT_MAX,
+    STREAM_PORT_MIN,
 )
+from .ports import stream_url as bridge_stream_url
 
 CLOUD_ACCOUNT_FILE = "cloud-account.json"
 STREAM_CREDENTIALS_FILE = "stream_credentials.json"
@@ -89,6 +95,48 @@ def _auto_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_TWO_WAY, default=values.get(CONF_TWO_WAY, False)
             ): BooleanSelector(),
         }
+    )
+
+
+def _embedded_options_schema(defaults: dict[str, Any]) -> vol.Schema:
+    """Build the managed-bridge options form.
+
+    The stream URL is derived from the port, so it is not asked for here.
+    """
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_HOST, default=defaults.get(CONF_HOST, "")
+            ): TextSelector(),
+            vol.Required(
+                CONF_PORT, default=defaults.get(CONF_PORT, DEFAULT_PORT)
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
+            vol.Required(
+                CONF_AUTH_CODE, default=defaults.get(CONF_AUTH_CODE, "")
+            ): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
+            vol.Required(
+                CONF_NAME, default=defaults.get(CONF_NAME, "")
+            ): TextSelector(),
+            vol.Required(
+                CONF_STREAM_PORT,
+                default=defaults.get(CONF_STREAM_PORT, DEFAULT_RTSP_PORT),
+            ): vol.All(
+                vol.Coerce(int),
+                vol.Range(min=STREAM_PORT_MIN, max=STREAM_PORT_MAX),
+            ),
+            vol.Required(
+                CONF_TWO_WAY, default=defaults.get(CONF_TWO_WAY, False)
+            ): BooleanSelector(),
+        }
+    )
+
+
+def _is_embedded(config: dict[str, Any]) -> bool:
+    """True when the entry uses the managed bridge."""
+    return config.get(CONF_BRIDGE_MODE, BRIDGE_MODE_EMBEDDED) != (
+        BRIDGE_MODE_EXTERNAL
     )
 
 
@@ -228,6 +276,7 @@ class VimarDoorConfigFlow(ConfigFlow, domain=DOMAIN):
                         data = {
                             CONF_HOST: host,
                             CONF_PORT: DEFAULT_PORT,
+                            CONF_STREAM_PORT: DEFAULT_RTSP_PORT,
                             CONF_AUTH_CODE: result.auth_code,
                             CONF_NAME: resolved_name,
                             CONF_STREAM_URL: DEFAULT_STREAM_URL,
@@ -252,35 +301,53 @@ class VimarDoorConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class VimarDoorOptionsFlow(OptionsFlow):
-    """Edit advanced settings without re-running the cloud bootstrap."""
+    """Edit the settings without re-running the cloud bootstrap."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Edit the settings."""
         current = {**self.config_entry.data, **self.config_entry.options}
+        embedded = _is_embedded(current)
         errors: dict[str, str] = {}
         if user_input is not None:
             host = _normalize_host(user_input[CONF_HOST])
+            two_way = bool(user_input[CONF_TWO_WAY])
+            stream_port: int | None = None
+            if embedded:
+                try:
+                    stream_port = int(user_input[CONF_STREAM_PORT])
+                except (TypeError, ValueError):
+                    stream_port = DEFAULT_RTSP_PORT
+                stream_url = bridge_stream_url(stream_port)
+            else:
+                stream_url = str(user_input[CONF_STREAM_URL]).strip()
             errors = await _async_validate_device(
                 self.hass,
                 host,
                 int(user_input[CONF_PORT]),
                 user_input[CONF_AUTH_CODE],
-                bool(user_input[CONF_TWO_WAY]),
-                user_input[CONF_STREAM_URL].strip(),
+                two_way,
+                stream_url,
             )
             if not errors:
                 data = {
                     **user_input,
                     CONF_HOST: host,
                     CONF_NAME: user_input[CONF_NAME].strip() or host,
-                    CONF_STREAM_URL: user_input[CONF_STREAM_URL].strip(),
+                    CONF_STREAM_URL: stream_url,
                 }
+                if stream_port is not None:
+                    data[CONF_STREAM_PORT] = stream_port
                 return self.async_create_entry(title="", data=data)
 
+        defaults = {**current, **(user_input or {})}
         return self.async_show_form(
             step_id="init",
-            data_schema=_manual_schema(user_input or current),
+            data_schema=(
+                _embedded_options_schema(defaults)
+                if embedded
+                else _manual_schema(defaults)
+            ),
             errors=errors,
         )

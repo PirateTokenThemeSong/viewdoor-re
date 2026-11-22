@@ -11,6 +11,30 @@ deployment below is for advanced users and legacy external-bridge setups.
 The integration does not talk QVII directly. It only needs the bridge's RTSP
 URL.
 
+## Managed bridge ports
+
+The integration gives the bridge a block of five consecutive TCP ports inside
+the Home Assistant container, starting at the RTSP port (default **8556**):
+
+| Port | Use |
+|------|-----|
+| base | RTSP listener (`rtsp://127.0.0.1:<base>/live`) |
+| base + 1 | loopback RTSP server behind the front proxy |
+| base + 2 | JSON status endpoint |
+| base + 4 | talk backchannel |
+
+If the block is taken — another add-on, a leftover process, a second
+doorbell — the integration walks forward one port at a time and uses the
+first free block (up to ten candidates). A conflict never blocks setup. The
+URL actually in use is logged at `INFO` as
+`Bridge RTSP URL for <name>: …` and is what the camera serves to Home
+Assistant.
+
+To start from a different port, use the integration options and change **Bridge
+RTSP port**. That value is only a preference: when it is busy the bridge moves
+up from there again, and the options form keeps the stored stream URL in sync
+with the port you entered.
+
 ## What you need
 
 - One host on the same LAN as the doorbell. It can be the Home Assistant host

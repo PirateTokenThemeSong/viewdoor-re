@@ -20,6 +20,7 @@ from .const import (
     DOMAIN,
 )
 from .api import VimarClient
+from .ports import entry_stream_url
 
 
 async def async_setup_entry(
@@ -29,7 +30,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up the camera entity."""
     client: VimarClient = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([VimarDoorCamera(entry, client)])
+    async_add_entities(
+        [VimarDoorCamera(entry, client, entry_stream_url(hass, entry))]
+    )
 
 
 class VimarDoorCamera(Camera):
@@ -41,7 +44,9 @@ class VimarDoorCamera(Camera):
     _attr_brand = "Vimar"
     _attr_model = "VIEW Door (Qualvision)"
 
-    def __init__(self, entry: ConfigEntry, client: VimarClient) -> None:
+    def __init__(
+        self, entry: ConfigEntry, client: VimarClient, stream_url: str
+    ) -> None:
         """Initialize the camera."""
         super().__init__()
         self._config = {**entry.data, **entry.options}
@@ -58,7 +63,7 @@ class VimarDoorCamera(Camera):
         self._attr_camera_entity_capabilities = CameraEntityCapabilities(
             two_way_audio=bool(self._config.get(CONF_TWO_WAY, False))
         )
-        self._stream_url = self._config[CONF_STREAM_URL]
+        self._stream_url = stream_url or self._config[CONF_STREAM_URL]
 
     @property
     def available(self) -> bool:
@@ -68,6 +73,11 @@ class VimarDoorCamera(Camera):
     async def stream_source(self) -> str | None:
         """Return the RTSP URL consumed by HA / go2rtc."""
         return self._stream_url
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """Expose the URL the bridge actually bound."""
+        return {"stream_url": self._stream_url}
 
     async def async_camera_image(
         self, width: int | None = None, height: int | None = None

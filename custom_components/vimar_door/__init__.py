@@ -20,8 +20,17 @@ from .const import (
     CONF_BRIDGE_MODE,
     CONF_HOST,
     CONF_PORT,
+    CONF_STREAM_PORT,
+    DEFAULT_RTSP_PORT,
     DEFAULT_WEBHOOK_BASE,
     DOMAIN,
+    STREAM_PORT_ATTEMPTS,
+    STREAM_PORT_MAX,
+    STREAM_PORT_MIN,
+)
+from .ports import (
+    async_find_stream_port,
+    stream_url as bridge_stream_url,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +44,17 @@ def credentials_paths(hass: HomeAssistant) -> tuple[Path, Path]:
     """Return the private bridge credential paths in the HA config dir."""
     base = Path(hass.config.path("vimar_door"))
     return base / CLOUD_ACCOUNT_FILE, base / STREAM_CREDENTIALS_FILE
+
+
+def preferred_stream_port(config: dict) -> int:
+    """Return the configured bridge base port, falling back to the default."""
+    try:
+        port = int(config.get(CONF_STREAM_PORT) or DEFAULT_RTSP_PORT)
+    except (TypeError, ValueError):
+        return DEFAULT_RTSP_PORT
+    if not STREAM_PORT_MIN <= port <= STREAM_PORT_MAX:
+        return DEFAULT_RTSP_PORT
+    return port
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -55,6 +75,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not cloud_path.is_file() or not credentials_path.is_file():
             raise ConfigEntryNotReady("Vimar cloud credentials are missing")
 
+        reserved = {
+            int(value)
+            for key, value in hass.data[DOMAIN].items()
+            if key.startswith("stream_port:")
+            and key != f"stream_port:{entry.entry_id}"
+        }
+        preferred = preferred_stream_port(config)
+        port = await async_find_stream_port(hass, preferred, reserved=reserved)
+        if port is None:
+            raise ConfigEntryNotReady(
+                "No free TCP port block for the bridge in "
+                f"{preferred}-{preferred + STREAM_PORT_ATTEMPTS - 1}; "
+                "change the bridge RTSP port in the integration options"
+            )
+        stream_url = bridge_stream_url(port)
+        hass.data[DOMAIN][f"stream_port:{entry.entry_id}"] = port
+        hass.data[DOMAIN][f"stream_url:{entry.entry_id}"] = stream_url
+        if port != preferred:
+            _LOGGER.warning(
+                "Bridge port block starting at %s is busy; using %s",
+                preferred,
+                port,
+            )
+        _LOGGER.info("Bridge RTSP URL for %s: %s", entry.title, stream_url)
+
         webhook_id = webhook.async_generate_id()
         webhook.async_register(
             hass,
@@ -73,6 +118,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ring_webhook_url=(
                 f"{DEFAULT_WEBHOOK_BASE}/api/webhook/{webhook_id}"
             ),
+            rtsp_port=port,
         )
         await bridge.start()
         hass.data[DOMAIN][f"bridge:{entry.entry_id}"] = bridge
@@ -111,7 +157,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry, PLATFORMS
     )
     if unloaded:
-        hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+        data = hass.data.get(DOMAIN, {})
+        data.pop(entry.entry_id, None)
+        data.pop(f"stream_port:{entry.entry_id}", None)
+        data.pop(f"stream_url:{entry.entry_id}", None)
     return unloaded
 
 

@@ -5,6 +5,10 @@ visible in one of those places.
 
 ## Bridge status
 
+The status port is the bridge's RTSP port **+ 2**, so it is `8558` only when the
+RTSP port is still `8556`. The integration logs the block it picked
+(`Bridge RTSP URL for <name>: rtsp://127.0.0.1:<port>/live`).
+
 ```bash
 curl -s http://127.0.0.1:8558/status
 ```
@@ -32,6 +36,11 @@ container/service logs.
 
 ## Camera does not appear
 
+- Check the `Bridge RTSP URL for <name>` line in the log: the bridge may have
+  moved off 8556 because another add-on or a leftover process holds the ports.
+  The camera's state attributes show the same `stream_url`. Ten busy
+  candidates in a row means nothing free was found; set a different
+  **Bridge RTSP port** in the integration options.
 - Confirm the bridge is running and `session`/`ready` become true.
 - Confirm Home Assistant can reach the RTSP URL configured in the integration.
   `127.0.0.1` only works when the bridge runs on the same host as Home

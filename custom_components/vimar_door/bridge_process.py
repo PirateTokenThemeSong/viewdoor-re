@@ -11,6 +11,13 @@ from pathlib import Path
 
 from homeassistant.core import HomeAssistant
 
+from .const import (
+    DEFAULT_RTSP_PORT,
+    PORT_OFFSET_INNER,
+    PORT_OFFSET_STATUS,
+    PORT_OFFSET_TALK,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 BRIDGE_DIR = Path(__file__).with_name("bridge")
@@ -29,7 +36,7 @@ class BridgeProcess:
         credentials_path: str,
         cloud_path: str,
         ring_webhook_url: str = "",
-        rtsp_port: int = 8556,
+        rtsp_port: int = DEFAULT_RTSP_PORT,
     ) -> None:
         self._hass = hass
         self._host = host
@@ -112,9 +119,9 @@ class BridgeProcess:
                 "CAMERA_STREAM_ID": "2",
                 "RTSP_BIND": "0.0.0.0",
                 "RTSP_PORT": str(self._rtsp_port),
-                "INNER_PORT": str(self._rtsp_port + 1),
-                "STATUS_PORT": str(self._rtsp_port + 2),
-                "TALK_PORT": str(self._rtsp_port + 4),
+                "INNER_PORT": str(self._rtsp_port + PORT_OFFSET_INNER),
+                "STATUS_PORT": str(self._rtsp_port + PORT_OFFSET_STATUS),
+                "TALK_PORT": str(self._rtsp_port + PORT_OFFSET_TALK),
                 "AUDIO": "1",
                 "TALK": "1",
                 "KEY_REFRESH": "1",

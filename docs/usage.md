@@ -101,6 +101,15 @@ normally requires no action from you.
 If video stops after a re-pairing, see
 [Troubleshooting](troubleshooting.md#video-stops-working).
 
+## Bridge ports
+
+The bridge runs inside the Home Assistant container and uses five local TCP
+ports starting at **8556**. If they are already taken, the integration moves
+to the next free block on its own and logs the URL it settled on; you do not
+have to free a port or publish anything. To start from a different port, open
+the integration options and change **Bridge RTSP port** — the stream URL is
+derived from it, and it moves up again if that port is busy too.
+
 ## Updating and removing
 
 To update the integration, replace the `custom_components/vimar_door` folder

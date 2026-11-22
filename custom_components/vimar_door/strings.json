@@ -34,14 +34,15 @@
     "step": {
       "init": {
         "title": "Vimar VIEW Door options",
-        "description": "Advanced settings. Normally leave these unchanged; the one-step setup creates them automatically.",
+        "description": "Advanced settings. Normally leave these unchanged; the one-step setup creates them automatically. The managed bridge uses the first free block of ports at or above the RTSP port.",
         "data": {
           "host": "Doorbell host",
           "port": "CGI port",
           "auth_code": "Out-auth-code (64 hex) or label code",
           "name": "Name",
-          "stream_url": "RTSP stream URL (bridge :8556)",
-          "two_way_audio": "Enable two-way audio (experimental)"
+          "stream_url": "RTSP stream URL (external bridge)",
+          "two_way_audio": "Enable two-way audio (experimental)",
+          "stream_port": "Bridge RTSP port (moves up when busy)"
         }
       }
     },

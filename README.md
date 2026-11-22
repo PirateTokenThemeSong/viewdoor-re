@@ -22,6 +22,8 @@ no separate bridge container or manual auth-code setup.
 - **Doorbell rings** — start any automation when someone presses the button:
   notifications, lights, TTS, snapshots, routines.
 - **Automatic recovery** — the bridge refreshes a rotated stream key by itself.
+- **No port wiring** — the bridge picks the first free block of local ports and
+  the RTSP port can be changed in the options.
 
 ## Get started
 

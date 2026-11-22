@@ -19,6 +19,7 @@ custom_components/vimar_door/
   config_flow.py     one-step email/password/IP flow + options
   camera.py          camera entity + two_way_audio capability
   button.py          relay 1 / relay 2 buttons
+  ports.py           free bridge port block scan
   const.py
   manifest.json      requires quii-helper
   strings.json
@@ -43,6 +44,7 @@ All values live in the config entry data and can be edited from
 | `auth_code` | — | out-auth-code or label code |
 | `name` | cloud device name | device/entity name |
 | `stream_url` | `rtsp://127.0.0.1:8556/live` | bridge RTSP output |
+| `stream_port` | `8556` | preferred RTSP port; moves up when busy |
 | `two_way_audio` | `false` | declare the HA capability |
 | `bridge_mode` | `external` for old entries | `embedded` starts the managed subprocess |
 
@@ -50,7 +52,15 @@ The auth code is SHA-256 hashed when it is not already 64 hex, matching the
 app’s `passwordencode=1` behavior. The token is stored in HA’s config entry,
 not in this repo.
 
-## Camera streaming
+## Bridge streaming
+
+`ports.py` probes a block of four TCP ports (`base`, `base+1`, `base+2`,
+`base+4`) before starting the subprocess and walks up to ten candidates
+forward when the block is taken, so a busy 8556 never blocks setup. The
+resolved base port is kept in `hass.data` under `stream_port:<entry_id>` and
+the resolved `rtsp://127.0.0.1:<port>/live` under `stream_url:<entry_id>`, and
+is passed to `BridgeProcess` as `rtsp_port`. `preferred_stream_port()` reads
+the `stream_port` option, so the option is a starting point, not a hard pin.
 
 `camera.py` returns `stream_source()` = `stream_url`. HA’s camera platform
 selects a WebRTC provider (the built-in go2rtc integration) for supported
@@ -93,8 +103,8 @@ The backend implements both directions:
   sent to the gate.
 
 The integration stream URL stays the bridge URL
-`rtsp://127.0.0.1:8556/live`; no extra go2rtc source is required. go2rtc is
-only Home Assistant's WebRTC provider.
+`rtsp://127.0.0.1:<resolved port>/live`; no extra go2rtc source is required.
+go2rtc is only Home Assistant's WebRTC provider.
 
 **Both directions verified at transport level.** With the routed talk session,
 the doorbell sent 508 E3 frames in 20 s and the RTSP audio recording contained
