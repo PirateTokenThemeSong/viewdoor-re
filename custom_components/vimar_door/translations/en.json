@@ -3,24 +3,27 @@
     "step": {
       "user": {
         "title": "Vimar VIEW Door",
-        "description": "Connect to the doorbell's LAN CGI API and the QVII → RTSP bridge. The bridge at :8556 also carries the PCMA talk backchannel; go2rtc is only Home Assistant's WebRTC provider.",
+        "description": "Sign in with the same Vimar app account used for the doorbell. The integration creates the local credentials and starts its bridge; you only need the account email, password and the doorbell IP.",
         "data": {
-          "host": "Doorbell host",
-          "port": "CGI port",
-          "auth_code": "Out-auth-code (64 hex) or label code",
+          "email": "Vimar account email",
+          "password": "Vimar account password",
+          "host": "Doorbell IP or host",
           "name": "Name",
-          "stream_url": "RTSP stream URL (bridge :8556)",
-          "two_way_audio": "Declare two-way audio support (experimental)"
+          "two_way_audio": "Enable two-way audio (experimental)"
         }
       }
     },
     "error": {
       "cannot_connect": "Cannot reach the doorbell.",
-      "invalid_auth": "The doorbell rejected the auth code.",
+      "invalid_auth": "The Vimar account or the doorbell rejected the credentials.",
       "device_error": "The doorbell returned an error.",
-      "invalid_host": "Enter a doorbell host or IP address.",
-      "invalid_stream_url": "Enter the RTSP URL served by the bridge.",
+      "invalid_host": "Enter a doorbell IP address or hostname.",
+      "invalid_stream_url": "The bridge stream URL is invalid.",
       "two_way_requires_rtsp": "Two-way audio requires an RTSP stream URL.",
+      "cloud_error": "Could not complete the Vimar cloud setup. Try again or use the manual bridge setup.",
+      "no_devices": "No doorbells were found for this Vimar account.",
+      "multiple_devices": "More than one doorbell was found. Configure the doorbell manually or use an account with one doorbell.",
+      "invalid_input": "Fill in the Vimar email, password and doorbell IP.",
       "unknown": "Unexpected error."
     },
     "abort": {
@@ -31,14 +34,14 @@
     "step": {
       "init": {
         "title": "Vimar VIEW Door options",
-        "description": "Change the bridge URL or the tokens without re-adding the device. Two-way audio uses the bridge RTSP backchannel.",
+        "description": "Advanced settings. Normally leave these unchanged; the one-step setup creates them automatically.",
         "data": {
           "host": "Doorbell host",
           "port": "CGI port",
           "auth_code": "Out-auth-code (64 hex) or label code",
           "name": "Name",
           "stream_url": "RTSP stream URL (bridge :8556)",
-          "two_way_audio": "Declare two-way audio support (experimental)"
+          "two_way_audio": "Enable two-way audio (experimental)"
         }
       }
     },

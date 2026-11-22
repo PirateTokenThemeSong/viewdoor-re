@@ -3,24 +3,27 @@
     "step": {
       "user": {
         "title": "Vimar VIEW Door",
-        "description": "Collega l'API CGI LAN del citofono e il bridge QVII → RTSP. Il bridge su :8556 trasporta anche il backchannel PCMA del parlato; go2rtc è solo il provider WebRTC di Home Assistant.",
+        "description": "Accedi con lo stesso account Vimar usato per il citofono. L'integrazione crea le credenziali locali e avvia il bridge; servono solo email, password e IP del citofono.",
         "data": {
-          "host": "Host del citofono",
-          "port": "Porta CGI",
-          "auth_code": "Out-auth-code (64 hex) o codice etichetta",
+          "email": "Email account Vimar",
+          "password": "Password account Vimar",
+          "host": "IP o host del citofono",
           "name": "Nome",
-          "stream_url": "URL RTSP (bridge :8556)",
-          "two_way_audio": "Dichiara il supporto two-way audio (sperimentale)"
+          "two_way_audio": "Abilita two-way audio (sperimentale)"
         }
       }
     },
     "error": {
       "cannot_connect": "Impossibile raggiungere il citofono.",
-      "invalid_auth": "Il citofono ha rifiutato il codice di autenticazione.",
+      "invalid_auth": "Account Vimar o credenziali del citofono rifiutate.",
       "device_error": "Il citofono ha restituito un errore.",
-      "invalid_host": "Inserisci un host o un IP valido.",
-      "invalid_stream_url": "Inserisci l'URL RTSP servito dal bridge.",
+      "invalid_host": "Inserisci l'IP o l'host del citofono.",
+      "invalid_stream_url": "L'URL RTSP del bridge non è valido.",
       "two_way_requires_rtsp": "Il two-way audio richiede un URL RTSP.",
+      "cloud_error": "Impossibile completare il setup cloud Vimar. Riprova o usa il bridge manuale.",
+      "no_devices": "Nessun citofono trovato per questo account Vimar.",
+      "multiple_devices": "Sono stati trovati più citofoni. Configura il citofono manualmente o usa un account con un solo citofono.",
+      "invalid_input": "Inserisci email, password e IP del citofono.",
       "unknown": "Errore inatteso."
     },
     "abort": {
@@ -31,14 +34,14 @@
     "step": {
       "init": {
         "title": "Opzioni Vimar VIEW Door",
-        "description": "Modifica URL del bridge o token senza riaggiungere il dispositivo. Il two-way audio usa il backchannel RTSP del bridge.",
+        "description": "Impostazioni avanzate. Normalmente non serve modificarle: il setup automatico le crea da solo.",
         "data": {
           "host": "Host del citofono",
           "port": "Porta CGI",
           "auth_code": "Out-auth-code (64 hex) o codice etichetta",
           "name": "Nome",
           "stream_url": "URL RTSP (bridge :8556)",
-          "two_way_audio": "Dichiara il supporto two-way audio (sperimentale)"
+          "two_way_audio": "Abilita two-way audio (sperimentale)"
         }
       }
     },

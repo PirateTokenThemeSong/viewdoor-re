@@ -8,13 +8,16 @@
   "documentation": "https://github.com/PirateTokenThemeSong/viewdoor-re",
   "issue_tracker": "https://github.com/PirateTokenThemeSong/viewdoor-re/issues",
   "dependencies": [
-    "camera"
+    "camera",
+    "webhook"
   ],
   "after_dependencies": [
     "go2rtc"
   ],
   "integration_type": "device",
   "iot_class": "local_polling",
-  "requirements": [],
-  "version": "0.3.1"
+  "requirements": [
+    "quii-helper>=0.7.0"
+  ],
+  "version": "0.4.0"
 }
