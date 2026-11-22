@@ -122,6 +122,7 @@ def refresh_stream_key(
         return {"ok": False, "error": f"local credentials: {exc}"}
 
     cloud = _CloudSession()
+    client_id = str(account.get("client_id") or "").strip() or CLIENT_ID
     try:
         login = ET.Element("content")
         ET.SubElement(login, "account").text = account["account"]
