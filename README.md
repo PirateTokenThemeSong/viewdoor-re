@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icon.svg" width="104" alt="Vimar VIEW Door">
+  <img src="assets/icon.png" width="104" alt="Vimar VIEW Door">
 </p>
 
 <h1 align="center">Vimar VIEW Door</h1>
