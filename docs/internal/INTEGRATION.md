@@ -41,7 +41,7 @@ All values live in the config entry data and can be edited from
 | `host` | — | doorbell IP/hostname |
 | `port` | `80` | `/tdkcgi` HTTP port |
 | `auth_code` | — | out-auth-code or label code |
-| `name` | `Cancelletto` | device/entity name |
+| `name` | cloud device name | device/entity name |
 | `stream_url` | `rtsp://127.0.0.1:8556/live` | bridge RTSP output |
 | `two_way_audio` | `false` | declare the HA capability |
 | `bridge_mode` | `external` for old entries | `embedded` starts the managed subprocess |
@@ -112,7 +112,7 @@ in `custom:webrtc-camera`. Add a button card that opens it:
 
 ```yaml
 - type: button
-  entity: camera.cancelletto
+  entity: camera.<name>
   name: Parla / ascolta (2 vie)
   icon: mdi:phone-in-talk
   show_state: false

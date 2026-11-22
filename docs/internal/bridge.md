@@ -72,7 +72,7 @@ Home Assistant’s WebRTC provider:
 
 ```yaml
 streams:
-  cancelletto: rtsp://127.0.0.1:8556/live
+  <camera-identifier>: rtsp://127.0.0.1:8556/live
 ```
 
 ## Home Assistant two-way audio

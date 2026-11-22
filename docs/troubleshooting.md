@@ -146,7 +146,7 @@ issue.
 - Check the Home Assistant log for a Python error.
 - Restart Home Assistant after copying the integration.
 - If you used the old YAML package, remove it to avoid duplicate
-  `button.cancelletto` entities.
+  duplicate relay button entities.
 - Confirm Home Assistant is version 2026.11 or newer.
 
 ## Credentials and privacy

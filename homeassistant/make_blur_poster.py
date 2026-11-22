@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Make the Cancelletto loading poster from a real camera frame.
+"""Make a neutral loading poster from a real camera frame.
 
-    python make_blur_poster.py frame.jpg cancelletto-poster.jpg
+    python make_blur_poster.py frame.jpg <doorbell>-poster.jpg
 
 Grayscale + Gaussian blur + soft vignette, 1100x900 (11:9, same as the card).
 Grab a fresh frame with:
-    curl -s -o frame.jpg "http://127.0.0.1:1984/api/frame.jpeg?src=cancelletto"
+    curl -s -o frame.jpg "http://127.0.0.1:1984/api/frame.jpeg?src=<camera-identifier>"
 """
 import sys
 

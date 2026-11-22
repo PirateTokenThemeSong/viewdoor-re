@@ -6,17 +6,17 @@ is no separate bridge container to manage.
 
 ## Entities
 
-With the default name `Cancelletto`:
+Entity IDs follow the doorbell name reported by the Vimar cloud, or the name
+you enter during setup. They are not fixed in the integration.
 
 | Entity | Purpose |
 |--------|---------|
-| `camera.cancelletto` | Live video and the two-way-audio dialog |
-| `button.cancelletto` | Relay 2 (normally the pedestrian gate) |
-| `button.cancelletto_relay_1` | Relay 1 (the second output) |
+| `camera.<name>` | Live video and the two-way-audio dialog |
+| `button.<name>` | Relay 2 (normally the pedestrian gate) |
+| `button.<name>_relay_1` | Relay 1 (the second output) |
 
-Your entity IDs can differ if you chose another name. The relay mapping is
-the doorbell's physical output numbering; check which gate opens before
-relying on a button.
+The relay mapping is the doorbell's physical output numbering; check which
+gate opens before relying on a button.
 
 ## Live video
 
@@ -32,9 +32,9 @@ Example dashboard card:
 
 ```yaml
 type: picture-glance
-title: Cancelletto
+title: <name>
 entities: []
-camera_image: camera.cancelletto
+camera_image: camera.<name>
 ```
 
 The doorbell allows one video stream at a time. If the video is open in the

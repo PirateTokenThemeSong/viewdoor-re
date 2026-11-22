@@ -30,7 +30,6 @@ from .const import (
     CONF_PORT,
     CONF_STREAM_URL,
     CONF_TWO_WAY,
-    DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_STREAM_URL,
     DOMAIN,
@@ -84,7 +83,7 @@ def _auto_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_HOST, default=values.get(CONF_HOST, "")
             ): TextSelector(),
             vol.Optional(
-                CONF_NAME, default=values.get(CONF_NAME, DEFAULT_NAME)
+                CONF_NAME, default=values.get(CONF_NAME, "")
             ): TextSelector(),
             vol.Optional(
                 CONF_TWO_WAY, default=values.get(CONF_TWO_WAY, False)
@@ -110,7 +109,7 @@ def _manual_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 TextSelectorConfig(type=TextSelectorType.PASSWORD)
             ),
             vol.Required(
-                CONF_NAME, default=values.get(CONF_NAME, DEFAULT_NAME)
+                CONF_NAME, default=values.get(CONF_NAME, "")
             ): TextSelector(),
             vol.Required(
                 CONF_STREAM_URL,
@@ -180,7 +179,7 @@ class VimarDoorConfigFlow(ConfigFlow, domain=DOMAIN):
             host = _normalize_host(user_input[CONF_HOST])
             email = user_input[CONF_EMAIL].strip()
             password = user_input[CONF_PASSWORD]
-            name = user_input.get(CONF_NAME, "").strip() or DEFAULT_NAME
+            name = user_input.get(CONF_NAME, "").strip()
             two_way = bool(user_input.get(CONF_TWO_WAY, False))
             if not host:
                 errors["base"] = "invalid_host"
@@ -208,6 +207,11 @@ class VimarDoorConfigFlow(ConfigFlow, domain=DOMAIN):
                 except Exception:  # noqa: BLE001 - don't expose request details
                     errors["base"] = "cloud_error"
                 else:
+                    resolved_name = (
+                        name
+                        or result.device_name.strip()
+                        or host
+                    )
                     errors = await _async_validate_device(
                         self.hass,
                         host,
@@ -225,13 +229,13 @@ class VimarDoorConfigFlow(ConfigFlow, domain=DOMAIN):
                             CONF_HOST: host,
                             CONF_PORT: DEFAULT_PORT,
                             CONF_AUTH_CODE: result.auth_code,
-                            CONF_NAME: name,
+                            CONF_NAME: resolved_name,
                             CONF_STREAM_URL: DEFAULT_STREAM_URL,
                             CONF_TWO_WAY: two_way,
                             CONF_BRIDGE_MODE: BRIDGE_MODE_EMBEDDED,
                         }
                         return self.async_create_entry(
-                            title=name,
+                            title=resolved_name,
                             data=data,
                         )
 
@@ -270,7 +274,7 @@ class VimarDoorOptionsFlow(OptionsFlow):
                 data = {
                     **user_input,
                     CONF_HOST: host,
-                    CONF_NAME: user_input[CONF_NAME].strip() or DEFAULT_NAME,
+                    CONF_NAME: user_input[CONF_NAME].strip() or host,
                     CONF_STREAM_URL: user_input[CONF_STREAM_URL].strip(),
                 }
                 return self.async_create_entry(title="", data=data)

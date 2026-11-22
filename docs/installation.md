@@ -43,7 +43,7 @@ the latest release and restart Home Assistant.
    | Vimar email | The account used in the Vimar app |
    | Vimar password | The same account password |
    | Doorbell IP | Its LAN address, for example `192.168.1.5` |
-   | Name | Optional entity name; defaults to `Cancelletto` |
+   | Name | Optional; blank uses the name reported by the Vimar cloud |
    | Two-way audio | Optional; see the requirements below |
 
 The integration then:

@@ -105,7 +105,7 @@ STALL = float(os.environ.get("STALL_SECONDS", "12"))
 BLACK_CHECK = float(os.environ.get("BLACK_CHECK_SECONDS", "10"))
 BLACK_BYTES = int(os.environ.get("BLACK_BYTES", "2000"))
 GO2RTC_API = os.environ.get("GO2RTC_API", "http://127.0.0.1:1984").rstrip("/")
-GO2RTC_SRC = os.environ.get("GO2RTC_SRC", "cancelletto")
+GO2RTC_SRC = os.environ.get("GO2RTC_SRC", "").strip()
 MAX_SESSION = float(os.environ.get("MAX_SESSION_SECONDS", "60"))
 BLOCK_HOLD = float(os.environ.get("BLOCK_HOLD_SECONDS", "20"))
 UNBLOCK_IDLE = float(os.environ.get("UNBLOCK_IDLE_SECONDS", "15"))
@@ -657,6 +657,8 @@ class Bridge:
         """Ask go2rtc for a JPEG frame and return its size (None on error)."""
         import urllib.request
 
+        if not GO2RTC_API or not GO2RTC_SRC:
+            return None
         url = f"{GO2RTC_API}/api/frame.jpeg?src={GO2RTC_SRC}"
         try:
             with urllib.request.urlopen(url, timeout=8) as resp:

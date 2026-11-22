@@ -43,7 +43,7 @@ Create a normal automation with an **Event** trigger:
   action:
     - service: notify.mobile_app_<phone>
       data:
-        title: Cancelletto
+        title: <name>
         message: Qualcuno ha suonato.
 ```
 

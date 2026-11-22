@@ -151,7 +151,7 @@ wiring is next to the existing `go2rtc` service in the `homeassistant` stack:
 then add it to `go2rtc.yaml` like the other four cameras:
 
 ```yaml
-  cancelletto: rtsp://127.0.0.1:8554/live
+  <camera-identifier>: rtsp://127.0.0.1:8554/live
 ```
 
 and the camera shows up in **Casa → Telecamere** with the WebRTC card.
@@ -267,10 +267,10 @@ restart clears them, after which the bridge closes the doorbell session.
 
 ### Dashboard card
 
-The Casa -> Cancelletto view uses `webrtc-camera` with:
+The dashboard view uses `webrtc-camera` with:
 
 ```yaml
-poster: /local/cancelletto-poster.jpg   # neutral placeholder (replace with your own)
+poster: /local/<doorbell>-poster.jpg   # neutral placeholder
 # background: true  <- removed: it started the stream even when the card was
 #                      not visible, defeating the idle close
 ```
@@ -280,7 +280,7 @@ real installation. It is shown instantly while go2rtc/bridge connect; the
 card's own `ha-circular-progress` spinner appears on the video `waiting` event.
 When the stream plays, the video covers the poster. For your own instance,
 generate a poster from your camera frame with
-`homeassistant/make_blur_poster.py frame.jpg cancelletto-poster.jpg`.
+`homeassistant/make_blur_poster.py frame.jpg <doorbell>-poster.jpg`.
 
 go2rtc timeout note: the front proxy connects go2rtc to the inner RTSP server
 immediately; the inner server answers `503 Service Unavailable` + `Retry-After: 1`
@@ -292,7 +292,7 @@ Disabled screen: while blocked, the bridge still serves the same RTSP URL but
 through a local `RtspH264Server` that loops a pre-rendered H.264 frame — a
 neutral **"STREAM DISATTIVATO"** screen — so the HA card shows a proper screen
 instead of freezing on the last frame. No doorbell traffic. Source image
-`homeassistant/cancelletto-disabled.jpg` (placeholder; replace it with your own),
+`homeassistant/<doorbell>-disabled.jpg` (placeholder; replace it with your own),
 encoded to `/config/vimar/disabled.h264` (ffmpeg, 1 frame IDR, repeated at 1 fps).
 
 Hard viewing cap: a viewer can hold the doorbell for at most
