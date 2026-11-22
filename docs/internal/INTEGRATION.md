@@ -4,8 +4,8 @@
 > [Installation](../installation.md), [Usage](../usage.md) and
 > [Doorbell ring](../ring.md).
 
-Branch `ha-integration` packages the HA-facing part of the project as a
-HACS-style custom integration.
+This repository packages the HA-facing part of the project as a HACS-style
+custom integration.
 
 ## Layout
 

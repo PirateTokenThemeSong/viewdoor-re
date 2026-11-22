@@ -1,65 +1,56 @@
-# Vimar VIEW Door for Home Assistant
+<p align="center">
+  <img src="assets/icon.svg" width="104" alt="Vimar VIEW Door">
+</p>
 
-An unofficial Home Assistant integration for **Vimar VIEW Door** doorbells
-based on the Qualvision QVII platform, including the Elvox `IDS9457W`.
+<h1 align="center">Vimar VIEW Door</h1>
 
-It brings the doorbell into Home Assistant as a normal camera device with
-the gate relays, optional two-way audio, and a trigger for automations when
-someone rings.
+<p align="center">Your doorbell, in Home Assistant.</p>
 
-## What it provides
+A local-first Home Assistant integration for Vimar VIEW Door / Qualvision QVII
+doorbells: live video, gate relays, optional two-way audio and doorbell-ring
+automations, with no cloud dependency for watching or opening.
 
-- **Live camera** in Home Assistant, dashboards and the companion app.
-- **Two gate relays** as buttons.
-- **Optional two-way audio** through Home Assistant's native *Start talking*
-  control.
-- **Doorbell ring events** that can start any Home Assistant automation:
-  notifications, lights, TTS, snapshots, presence routines and more.
-- **Automatic recovery** when the doorbell rotates its stream key.
+## What it does
 
-## Requirements
+- **Live camera** — the doorbell video in Home Assistant, dashboards and the
+  companion app.
+- **Gate relays** — both physical outputs as buttons.
+- **Two-way audio** — the native Home Assistant *Start talking* control, when
+  the bridge and browser support it.
+- **Doorbell rings** — start any automation when someone presses the button:
+  notifications, lights, TTS, snapshots, routines.
+- **Automatic recovery** — the bridge refreshes a rotated stream key by itself
+  when the cloud account is configured.
 
-- Home Assistant **2026.11** or newer.
-- A Vimar VIEW Door / QVII doorbell on the same network as Home Assistant.
-- The small **RTSP bridge** that connects the doorbell to Home Assistant.
-- The doorbell's authentication code.
-- Optionally, the Vimar app account for ring events and automatic stream-key
-  recovery.
+## Get started
 
-The bridge can run on the Home Assistant host or on another machine on the
-same LAN.
+1. Start the [RTSP bridge](docs/bridge.md) on the Home Assistant host or
+   another machine on the same LAN.
+2. Install the integration and add the doorbell — see
+   [Installation](docs/installation.md).
+3. Open the camera, test the relays and optionally enable
+   [two-way audio](docs/usage.md#two-way-audio).
+4. Set up [doorbell-ring automations](docs/ring.md) if you want Home Assistant
+   to react when someone rings.
 
 ## Documentation
 
-The [user documentation](docs/README.md) explains installation, daily use and
-troubleshooting:
-
-- [Installation](docs/installation.md)
-- [RTSP bridge](docs/bridge.md)
-- [Using the integration](docs/usage.md)
-- [Doorbell ring automations](docs/ring.md)
-- [Troubleshooting](docs/troubleshooting.md)
-
-Technical reference for developers — protocol, bridge internals, test
-procedures and reverse-engineering notes — is in
-[docs/internal](docs/internal/README.md).
+- [Installation](docs/installation.md) — integration, bridge and credentials
+- [Using the integration](docs/usage.md) — camera, relays, audio and updates
+- [RTSP bridge](docs/bridge.md) — run the bridge and configure the stream
+- [Doorbell rings](docs/ring.md) — webhook and automation examples
+- [Troubleshooting](docs/troubleshooting.md) — common problems and diagnostics
+- [Internal docs](docs/internal/README.md) — protocol, architecture and
+  developer notes
 
 ## Status
 
-The camera, both relays, visitor audio and the microphone/backchannel are
-implemented and have been tested on the `IDS9457W`. The native two-way audio
-control depends on Home Assistant's experimental *Two-way audio* Labs feature
-and on HTTPS. The microphone-to-gate-speaker path should still be checked
-physically before relying on it.
+Tested on the Elvox `IDS9457W` with Home Assistant 2026.11. The camera, relays
+and visitor audio are working; the native two-way audio is experimental and
+depends on Home Assistant Labs and HTTPS. Ring detection uses the Vimar cloud
+call journal and needs a valid Vimar app account.
 
-Doorbell ring detection uses the same cloud call journal as the Vimar app.
-It needs a valid Vimar app account; it is not a local button event from the
-video stream.
+The doorbell accepts one video stream at a time. The relay buttons control
+physical outputs: use them deliberately.
 
-## Safety
-
-- The relays are physical outputs. Only press them deliberately.
-- The doorbell accepts only one QVII video stream at a time.
-- Keep authentication codes, cloud account files and webhook IDs private.
-- This is an independent project, not affiliated with Vimar, Elvox or
-  Qualvision.
+This is an independent project, not affiliated with Vimar, Elvox or Qualvision.

@@ -45,12 +45,9 @@ If the bridge runs on the Home Assistant host, the usual address is
 
 ### HACS
 
-The integration is developed on the `ha-integration` branch. If your HACS
-installation sees a release or branch that contains
-`custom_components/vimar_door`, add the repository as a custom **Integration**
-repository and install it. If HACS only offers the repository's default branch
-and the integration folder is not present there, use the manual installation
-above or install the `v0.3.1` (or newer) release.
+Add this repository as a custom **Integration** repository in HACS and install
+the latest release. If HACS cannot install it, use the manual installation
+above.
 
 ## Add the doorbell
 
