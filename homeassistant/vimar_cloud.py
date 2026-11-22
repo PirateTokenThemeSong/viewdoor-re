@@ -27,14 +27,20 @@ LOGIN_CLASS = "com.quvii.qvweb.userauth.bean.request.LoginReqContent"
 TOKEN_CLASS = "com.quvii.qvweb.userauth.bean.request.DevDynamicPwdGetReqContent"
 
 
-def _envelope(command: str, content: ET.Element, session: str, seq: int) -> bytes:
+def _envelope(
+    command: str,
+    content: ET.Element,
+    session: str,
+    seq: int,
+    client_id: str = CLIENT_ID,
+) -> bytes:
     env = ET.Element("envelope")
     cls = LOGIN_CLASS if command == "login" else TOKEN_CLASS
     ET.SubElement(env, "content", {"class": cls}).extend([content])
     header = ET.SubElement(env, "header")
     client = ET.SubElement(header, "client")
     ET.SubElement(client, "app").text = str(APP_ID)
-    ET.SubElement(client, "id").text = CLIENT_ID
+    ET.SubElement(client, "id").text = client_id
     ET.SubElement(client, "oem").text = OEM
     ET.SubElement(client, "type").text = str(CLIENT_TYPE)
     ET.SubElement(header, "command").text = command
@@ -123,7 +129,9 @@ def refresh_stream_key(
         ET.SubElement(login, "ip-region-id").text = str(account.get("rgn", 1))
         ET.SubElement(login, "password").text = account["password"]
         ET.SubElement(login, "auth-type").text = "0"
-        root = cloud.post(_envelope("login", login, "", 1), timeout)
+        root = cloud.post(
+            _envelope("login", login, "", 1, client_id=client_id), timeout
+        )
         result = (root.findtext("./header/result") or "").strip()
         if result and result != "0":
             return {"ok": False, "error": f"login result {result}"}
@@ -134,7 +142,10 @@ def refresh_stream_key(
         token_content = ET.Element("content")
         ET.SubElement(token_content, "device-id").text = device_id
         root = cloud.post(
-            _envelope("get-device-token", token_content, session, 0),
+            _envelope(
+                "get-device-token", token_content, session, 0,
+                client_id=client_id,
+            ),
             timeout,
         )
         result = (root.findtext("./header/result") or "").strip()

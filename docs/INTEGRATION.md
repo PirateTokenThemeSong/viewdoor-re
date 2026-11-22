@@ -139,7 +139,7 @@ RING_WATCH: "1"
 RING_WEBHOOK_URL: "http://127.0.0.1:8123/api/webhook/<webhook-id>"
 RING_POLL_SECONDS: "5"
 CLOUD_AUTH_URL: "https://r1-2-sec.qvcloud.net/auth/user"
-CLOUD_ALARM_URL: "https://shi-20-sec.qvcloud.net:4443/UserAlarm"
+CLOUD_ALARM_URL: "https://r1-2-sec.qvcloud.net/UserAlarm"  # same host as auth
 ```
 
 Create a **webhook** automation in HA (the bridge and HA share the host

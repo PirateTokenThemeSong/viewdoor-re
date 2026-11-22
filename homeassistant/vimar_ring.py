@@ -35,7 +35,7 @@ PAGE_SIZE = 15
 MAX_SEEN = 256
 DEFAULT_AUTH_URL = "https://r1-2-sec.qvcloud.net/auth/user"
 # Vimar profile (app 2078 / OEM G0078) service discovery, region 1.
-DEFAULT_ALARM_URL = "https://shi-20-sec.qvcloud.net:4443/UserAlarm"
+DEFAULT_ALARM_URL = "https://r1-2-sec.qvcloud.net/UserAlarm"
 OEM = "G0078"
 APP_ID = 2078
 CLIENT_TYPE = 3
@@ -202,7 +202,9 @@ class RingWatcher:
     def _login(
         self, cloud: "_CloudSession", account: dict[str, Any]
     ) -> tuple[str, str]:
-        client_id = f"00{CLIENT_TYPE}-{APP_ID}-" + "0" * 32
+        client_id = str(account.get("client_id") or "").strip()
+        if not client_id:
+            client_id = f"00{CLIENT_TYPE}-{APP_ID}-" + "0" * 32
         content = ET.Element("content")
         ET.SubElement(content, "account").text = str(account["account"])
         ET.SubElement(content, "auth-code").text = ""

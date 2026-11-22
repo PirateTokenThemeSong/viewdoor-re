@@ -57,7 +57,7 @@ Environment:
 | `RING_WEBHOOK_URL` | empty | HA webhook receiving the ring JSON |
 | `RING_POLL_SECONDS` | `5` | call-journal poll interval |
 | `CLOUD_AUTH_URL` | `r1-2-sec` | QV user-auth base URL |
-| `CLOUD_ALARM_URL` | `shi-20-sec:4443/UserAlarm` | QV alarm service URL |
+| `CLOUD_ALARM_URL` | `r1-2-sec/UserAlarm` | QV alarm service URL (same auth host) |
 | `CLOUD_DEVICE_ID` | from credentials | override the call-journal camera UID |
 | `CAMERA_DEVICE_HOST` | `192.168.1.50` | doorbell IP |
 

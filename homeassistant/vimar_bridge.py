@@ -89,7 +89,7 @@ except ImportError:
     except ImportError:  # pragma: no cover
         RingWatcher = None  # type: ignore[assignment]
         DEFAULT_AUTH_URL = "https://r1-2-sec.qvcloud.net/auth/user"
-        DEFAULT_ALARM_URL = "https://shi-20-sec.qvcloud.net:4443/UserAlarm"
+        DEFAULT_ALARM_URL = "https://r1-2-sec.qvcloud.net/UserAlarm"
 
 CREDENTIALS = os.environ.get("CREDENTIALS", "/config/vimar/stream_credentials.json")
 BIND = os.environ.get("RTSP_BIND", "0.0.0.0")
